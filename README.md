@@ -1,103 +1,49 @@
 # Immune System vs Bacteria Multi-Agent Simulation
 
-## 🎯 Project Overview
+## Overview
+Macrophages (immune cells) vs Pseudomonas aeruginosa bacteria simulation with AI decision-making. Macrophages use MCTS planning while bacteria employ adaptive strategies. Features quorum sensing, biofilm formation, virulence factors, and macrophage exhaustion.
 
-This project simulates the adversarial interaction between **macrophages** (immune cells) and **Pseudomonas aeruginosa** bacteria using advanced AI decision-making algorithms. The simulation models realistic biological behaviors including bacterial quorum sensing, biofilm formation, virulence factors, and macrophage exhaustion.
+## Current State
 
-### Core Concept
-- **Macrophages**: Intelligent agents using Monte Carlo Tree Search (MCTS) to hunt and eliminate bacteria
-- **Bacteria**: Adaptive adversarial agents with collective behaviors (clustering, biofilm, virulence)
-- **Environment**: 30x30 grid with nutrients, spatial dynamics, and health systems
-- **Objective**: Compete until one side achieves victory (elimination, survival, or timeout)
+### ✅ Implemented
+- **Single macrophage** with MCTS-based AI and vision system
+- **Adaptive bacteria** with context-aware decisions (flee, cluster, attack, seek nutrients)
+- **Biofilm mechanics**: Quorum sensing triggers defensive biofilms
+- **Virulence factors**: Mature bacteria produce toxins
+- **Exhaustion system**: Macrophages tire when fighting multiple bacteria
+- **Real-time PyQt5 visualization**
+- **Data analysis**: CSV logging, heatmaps, performance plots
+- **Parameter sweeping** for experiments
 
----
+### Usage
+```bash
+# Run simulation
+cd experiments
+python run_simulation.py
 
-## 🧬 Biological Features Modeled
+# Compare bacteria strategies  
+python compare_bacteria_modes.py
 
-### Bacterial Intelligence (Pseudomonas aeruginosa)
-- **Quorum Sensing**: Bacteria communicate when clustered, forming defensive biofilms
-- **Biofilm Formation**: Reduces damage taken and increases attack power
-- **Virulence Factors**: Mature bacteria produce toxins that passively damage nearby macrophages
-- **Dynamic Replication**: Nutrient-boosted bacteria replicate faster
-- **Age & Maturity**: Young bacteria are weak; mature bacteria attack effectively
-
-### Macrophage Capabilities
-- **Vision System**: Detects bacteria within radius to plan strategic moves
-- **Toxin Burst**: Area-of-effect attack with cooldown mechanic
-- **Exhaustion System**: Fighting multiple bacteria causes fatigue and vulnerability
-- **MCTS Planning**: Simulates future scenarios to choose optimal actions
-
-### Environmental Dynamics
-- **Nutrient Patches**: Bacteria consume nutrients to heal and boost replication
-- **Spatial Strategy**: Movement, positioning, and clustering affect outcomes
-- **Time Pressure**: Limited time horizon creates urgency
-
----
-
-## 🚀 Current Capabilities
-
-### Implemented Features
-✅ **Single Macrophage vs Bacterial Colony**  
-✅ **MCTS-based Macrophage AI** with rollout simulations  
-✅ **4 Bacterial Behavior Modes**: `scatter`, `cluster`, `defend`, `replicate`  
-✅ **Quorum Sensing & Biofilm** mechanics  
-✅ **Virulence Factor** toxin production  
-✅ **Macrophage Exhaustion** from prolonged combat  
-✅ **Real-time PyQt5 Visualization**  
-✅ **Data Logging & Analysis** (CSV export, heatmaps, performance plots)  
-✅ **Parameter Sweeping** for experimentation  
-
-### Behavior Modes (Current)
-Bacteria currently use **static modes** defined in `config.py`:
-- **`scatter`**: Random exploration
-- **`cluster`**: Group around center of mass
-- **`defend`**: Aggressive pursuit when macrophage nearby, otherwise cluster
-- **`replicate`**: Prioritize nutrient consumption
-
----
-
-## 🔮 Roadmap: Advanced Features
-
-### Phase 1: Dynamic Bacteria Intelligence ⏳
-**Goal**: Replace hardcoded behavior modes with adaptive, condition-based decision-making
-
-**Implementation**:
-```python
-# Bacteria choose behavior based on context
-def choose_bacteria_strategy(bacteria, env):
-    if bacteria.health < 10 and nearby_nutrients:
-        return "seek_nutrient"
-    elif macrophage_distance < 5 and in_biofilm:
-        return "attack"
-    elif macrophage_distance < 3 and not in_biofilm:
-        return "flee"
-    elif quorum_threshold_met:
-        return "cluster_biofilm"
-    else:
-        return "explore" + stochastic_noise()
+# Parameter sweep
+python param_sweep.py
 ```
 
-**Benefits**:
-- More realistic emergent behavior
-- Bacteria adapt to changing threats
-- Retains stochasticity (not fully deterministic)
+**Config toggles** (`config.py`):
+- `BACTERIA_ADAPTIVE_ENABLED = True` → Smart adaptive bacteria
+- `BACTERIA_STOCHASTICITY = 0.15` → 15% random decisions
 
-**Complexity**: ⭐⭐ (Low - straightforward refactor)
+## Future Plans
 
----
+### Phase 1: Multi-Macrophage Cooperation
+- Multiple macrophages (3-5) on grid
+- Communication system for help requests
+- Coordinated attacks on bacteria clusters
+- Territory division strategies
 
-### Phase 2: MCTS for Bacteria 🔬
-**Goal**: Give bacteria the same planning capabilities as macrophages
-
-**Challenges**:
-1. **State Space Explosion**: 20+ bacteria × 5+ actions = huge search tree
-2. **Coordination Problem**: Who decides for the collective?
-3. **Computational Cost**: Rollouts multiply by number of bacteria
-
-**Solutions**:
-- **Option A**: Single "Bacteria Hive Mind" agent controls all bacteria (tractable)
-- **Option B**: Each bacterium runs lightweight MCTS (expensive but decentralized)
-- **Option C**: Representative sampling (3-5 key bacteria plan, others follow)
+### Phase 2: Bacteria MCTS (Optional)
+- Hive-mind controller for bacterial collective
+- Strategic planning against macrophages
+- Higher computational cost, better opponent
 
 **Recommendation**: Start with **Option A** (collective MCTS) for feasibility
 
