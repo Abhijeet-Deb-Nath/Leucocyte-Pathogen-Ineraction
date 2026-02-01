@@ -16,15 +16,20 @@ class HeuristicAgent:
         if visible_bacteria:
             # Count bacteria within toxin radius (threat in close range)
             close_targets = 0
+            # Count bacteria in immediate danger zone (within 3 cells)
+            nearby_threats = 0
             for b in visible_bacteria:
                 bx, by = b.position
-                if abs(bx - mx) <= config.MACROPHAGE_TOXIN_RADIUS and abs(by - my) <= config.MACROPHAGE_TOXIN_RADIUS:
+                dist = abs(bx - mx) + abs(by - my)
+                if dist <= config.MACROPHAGE_TOXIN_RADIUS:
                     close_targets += 1
+                if dist <= 3:  # Immediate danger zone
+                    nearby_threats += 1
             # Decide to use toxin if multiple targets are very close
             if close_targets >= 3:
                 return ("toxin", None)
-            # If Macrophage health is low or heavily outnumbered, retreat
-            if env.macrophage.health < 0.3 * config.MACROPHAGE_HEALTH or len(visible_bacteria) > 5:
+            # If Macrophage health is low or heavily outnumbered by NEARBY bacteria, retreat
+            if env.macrophage.health < 0.3 * config.MACROPHAGE_HEALTH or nearby_threats > 5:
                 # Retreat: move away from nearest visible bacteria
                 nearest = min(visible_bacteria, key=lambda b: abs(b.position[0]-mx) + abs(b.position[1]-my))
                 bx, by = nearest.position

@@ -7,9 +7,9 @@ TIME_HORIZON = 300  # Maximum number of steps in a simulation
 
 # Macrophage parameters
 MACROPHAGE_HEALTH = 100  # Initial health of macrophage
-MACROPHAGE_VISION_RADIUS = 6  # Vision radius of macrophage (Manhattan or Euclidean distance)
-ROLLOUT_BUDGET = 200  # MCTS rollout budget (number of simulations)
-MACROPHAGE_TOXIN_RADIUS = 2  # Radius of toxin burst (Manhattan distance)
+MACROPHAGE_VISION_RADIUS = 999  # Vision radius of macrophage (999 = entire grid visibility)
+ROLLOUT_BUDGET = 0  # MCTS rollout budget (0 = use heuristic only for debugging)
+MACROPHAGE_TOXIN_RADIUS = 1  # Radius of toxin burst (Manhattan distance)
 MACROPHAGE_TOXIN_DAMAGE = 50  # Damage dealt by toxin burst to bacteria in range
 
 # Bacteria parameters
@@ -54,4 +54,6 @@ MCTS_SIM_DEPTH = 20  # Depth of simulation in each MCTS rollout (how many steps 
 SAVE_PLOTS = True  # Whether to save performance plots (bacteria count vs time, etc.)
 
 # Bacteria behavior modes
-BACTERIA_MODE = "cluster"  # Default behavior mode: "cluster", "scatter", "replicate", or "defend"
+BACTERIA_MODE = "scatter"  # Default behavior mode: "cluster", "scatter", "replicate", "defend", or "adaptive"
+BACTERIA_ADAPTIVE_ENABLED = True  # Use adaptive AI instead of fixed behavior modes
+BACTERIA_STOCHASTICITY = 0.15  # Amount of randomness in bacteria decisions (0.0 = deterministic, 1.0 = random)

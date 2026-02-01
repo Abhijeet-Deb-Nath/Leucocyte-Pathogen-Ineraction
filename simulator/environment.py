@@ -381,6 +381,11 @@ class Environment:
         Determine movement direction (dx, dy) for a bacteria based on the current behavior mode.
         Returns a tuple (dx, dy) or (None, None) for no movement.
         """
+        # Use adaptive AI if enabled
+        if config.BACTERIA_ADAPTIVE_ENABLED:
+            from agents.bacteria_adaptive import choose_bacteria_move
+            return choose_bacteria_move(b, self)
+        
         mode = config.BACTERIA_MODE.lower()
         bx, by = b.position
         # Helper for moving toward a target point
