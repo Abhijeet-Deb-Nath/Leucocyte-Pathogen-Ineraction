@@ -1,231 +1,220 @@
 # Detailed Game Rules and Interaction Logic: Pathway 1
 
-## 1. What This "Game" Actually Is
+## 1. Executive Summary
 
-This project is a mechanistic simulation of early innate immune response in a compartmentalized alveolar-like environment.
+Pathway 1 is a deliberately simplified but mechanistically structured innate-immune interaction model.
 
-The simulation is framed as a game between:
-1. Host side (macrophage as the controllable decision agent; neutrophils as delayed recruited effectors).
-2. Bacteria side (adaptive local policy and state transitions from planktonic to biofilm-like protection).
+It is not a full biological simulator of lung physiology. It is a focused research sandbox designed to answer:
+1. How local spatial structure changes host-pathogen dynamics.
+2. How delayed immune reinforcement shifts outcomes.
+3. How clearance-vs-collateral-damage trade-offs emerge.
 
-The objective is not visual entertainment. The objective is to study the clearance-versus-damage trade-off:
-1. Fast bacterial clearance is good.
-2. Excess immune escalation causes host tissue damage.
-3. Persistent bacteria can outlast the host even if immediate bacterial count is low.
+So the short answer to your question "is this too simple biologically?" is:
+1. It is biologically abstract, yes.
+2. It is not biologically meaningless.
+3. The simplification is intentional so more budget can go into interaction dynamics and decision policies.
 
-## 2. Why There Are Many Green Nutrient Cells
+## 2. Why This Level of Simplicity Is Reasonable
 
-Yes, this was an intentional modeling choice.
+The model keeps only the components needed for the target research question:
+1. Local compartments and bottlenecks (spatial constraints).
+2. Nutrient ecology (resource-limited growth and movement choices).
+3. Bacterial phenotypic progression (planktonic -> attached -> microcolony -> biofilm).
+4. Host local control plus delayed reinforcement (macrophage + neutrophil queue).
+5. Chemokine field (signal-driven escalation).
+6. Damage economics and utility (clearance is not free).
 
-Green tissue cells represent local nutrient availability. A broad nutrient field is used to mimic heterogeneous but generally available substrate in alveolar tissue compartments, instead of making only a few single "food points."
+What is intentionally omitted:
+1. Full cytokine network.
+2. Adaptive immunity.
+3. Detailed receptor pathways.
+4. Continuous fluid mechanics.
+5. Tissue microanatomy beyond a compartment graph.
 
-This design creates richer interactions because:
-1. Bacterial replication depends on local nutrient thresholds, not just movement luck.
-2. Bacterial movement has meaningful choices (seek nutrients, avoid chemokine pressure, cluster with neighbors).
-3. Macrophage decisions are not only chase-or-attack; signaling timing changes future immune pressure.
-4. Chemokine dynamics and delayed neutrophil arrival create second-order effects across space and time.
+This is an interaction-first model: lower biological dimensionality, higher clarity of cause-effect between policies and outcomes.
 
-In short: nutrient-rich regions are deliberate to create ecology-like dynamics, not random color fill.
+## 3. The Actual Story of One Episode
 
-## 3. World Topology and Compartments
+Think of each run as this narrative:
+1. A local bacterial hotspot is seeded in one compartment.
+2. A resident macrophage patrols and either attacks or signals.
+3. Bacteria try to survive by moving, attaching, and building protected states.
+4. Local contact/signaling raises chemokine concentration.
+5. If chemokine pressure becomes strong enough, a delayed neutrophil wave is queued.
+6. Neutrophils enter from boundaries and increase kill pressure.
+7. Strong response may clear infection but can increase tissue damage.
+8. Final outcome reflects both control success and biological cost.
+
+This is the core interaction story encoded by the environment step loop.
+
+## 4. World Geometry and Accessibility
 
 Source of implementation: simulator/environment.py and config.py.
 
-### 3.1 Grid construction
+### 4.1 Grid and compartments
 
-With current defaults:
+With default values:
 1. WORLD_ROWS = 2
 2. WORLD_COLS = 2
 3. COMPARTMENT_SIZE = 10
-4. GRID_SIZE = WORLD_ROWS * COMPARTMENT_SIZE + (WORLD_ROWS - 1) = 21
+4. GRID_SIZE = 21
 
-So the map is 21x21 with 4 tissue compartments separated by wall lanes.
+So the world is 21x21 with 4 compartments separated by wall lanes.
 
-### 3.2 Black lines in the UI
+### 4.2 Walls and bottlenecks
 
-Black cells are structural walls and bottlenecks between compartments.
+Black wall lanes are non-walkable barriers except carved doorway spans.
 
-They come from blocked_tiles, which marks wall rows/columns between compartments.
+Role in interaction:
+1. Prevents unlimited open-field chase/evasion.
+2. Creates chokepoints where signaling and interception matter more.
+3. Forces strategic timing when moving between compartments.
+4. Enables local persistence pockets for bacteria.
 
-### 3.3 Inter-compartment accessibility (your direct question)
+### 4.3 Inter-compartment entrance correctness
 
-After the latest fix, bottleneck doorways are genuinely traversable.
+Doorways are now truly enterable, not only visually open.
 
-Technical detail:
-1. Doorway cells are removed from blocked_tiles.
-2. Doorway cells are also explicitly marked walkable in compartment_map (non-negative compartment id).
-3. _is_walkable checks both conditions, so both must be valid.
-4. If PASSAGE_BOTTLENECK_WIDTH is even, the implementation internally uses an odd centered span
-	for doorway carving to avoid directional bias that can isolate one quadrant near wall intersections.
+The implementation guarantees this by:
+1. Removing doorway cells from blocked_tiles.
+2. Marking doorway cells as walkable in compartment_map.
+3. Evaluating walkability through both checks.
+4. Centering doorway spans with odd width internally, even if configured width is even.
 
-This means the inter-compartment pathways are now accessible/enterable in practice, not just visually open.
+That last point avoids directional bias that can isolate a quadrant at wall intersections.
 
-## 4. Entity Types and State Variables
+## 5. Agents and Their Algorithms
 
-Source of implementation: simulator/entities.py.
+## 5.1 Macrophage (host decision agent)
 
-### 4.1 Macrophage
+Primary policy: lightweight rollout-based MCTS selector (agents/mcts.py).
 
-State:
-1. position
-2. health
-3. signal_cooldown
-4. kills
+Mechanics:
+1. Enumerate legal actions.
+2. Clone environment for each action.
+3. Rollout using candidate first action plus random continuation.
+4. Evaluate resulting state with utility-weighted score.
+5. Pick best average action.
 
-Actions:
-1. Move (4-neighborhood plus stay)
-2. Attack adjacent bacteria
-3. Signal chemokine burst (if cooldown allows)
+Fallback policy: heuristic rule system (agents/heuristic.py) if rollout budget/time is constrained.
 
-### 4.2 Bacteria
-
-State:
-1. position
-2. health
-3. age
-4. state in {planktonic, attached, microcolony, biofilm}
-5. attach_timer
-6. biofilm_timer
-7. dispersal_cooldown
-
-### 4.3 Neutrophil
-
-State:
-1. position
-2. health
-3. age
-
-Neutrophils are recruited later (not present at start).
-
-## 5. Exact Turn Loop (Current Implementation)
-
-Source of implementation: Environment.step in simulator/environment.py.
-
-Per step order:
-1. Host action chosen (MCTS by default, unless provided externally).
-2. Macrophage action executes.
-3. Bacteria phase executes (bacterial attacks, state updates, movement, replication).
-4. Neutrophil phase executes (movement, attack, lifespan filtering).
-5. Field updates execute (nutrient regen/consumption, chemokine diffusion/decay/noise, recruitment queue, tissue damage accumulation).
-6. step_count increments.
-7. phase label updates.
-8. history logging updates.
-9. termination checks run.
-
-This ordering is important because signaling before bacterial/neutrophil phases changes the same-step chemokine dynamics.
-
-## 6. Agent Algorithms
-
-## 6.1 Host policy (Macrophage): MCTS rollout planner
-
-Source: agents/mcts.py.
-
-It is a lightweight Monte Carlo rollout selector, not full tree backpropagation.
-
-Algorithm in practice:
-1. Enumerate legal macrophage actions.
-2. For each action, run cloned-environment rollouts.
-3. First simulated move uses the candidate action.
-4. Remaining rollout depth uses random legal macrophage actions.
-5. Score terminal/non-terminal state with utility-based evaluator.
-6. Pick action with highest average rollout score.
-
-Controls:
-1. ROLLOUT_BUDGET
-2. MCTS_SIM_DEPTH
-3. 1.5s safety timeout fallback to heuristic policy
-
-Evaluator shape:
-1. Large positive bonus for Host win.
-2. Large negative bonus for Bacteria win.
-3. Otherwise: host utility adjusted by bacterial burden, neutrophil burden, macrophage health.
-
-## 6.2 Host fallback policy: Heuristic contain-vs-recruit policy
-
-Source: agents/heuristic.py.
-
-Decision logic:
-1. If bacteria are adjacent and attack is legal: attack.
-2. If local bacterial burden is high (>=3) and signaling legal: signal.
-3. Else move toward nearest sensed bacterium.
-4. If no bacteria sensed, move toward chemokine peak.
+Heuristic priorities:
+1. Attack if bacteria adjacent.
+2. Signal if local burden high and signal available.
+3. Move toward nearest sensed bacteria.
+4. If none seen, move toward chemokine peak.
 5. Else random legal move.
 
-## 6.3 Bacteria policy: Adaptive local movement
+## 5.2 Bacteria (adaptive local policy)
 
-Source: agents/bacteria_adaptive.py.
+Policy: rule-based local adaptation with stochastic branch (agents/bacteria_adaptive.py).
 
-Decision hierarchy:
-1. With probability BACTERIA_STOCHASTICITY, random move/stay.
-2. If in microcolony/biofilm and local chemokine pressure is not high: stay.
-3. If macrophage is close and bacterium is planktonic: move away.
-4. If local nutrient is below replication threshold: move toward richer neighboring nutrient.
-5. If local chemokine is high: move toward lower-chemokine neighbor.
-6. Otherwise move toward local clustering (higher nearby friend count).
+Priorities:
+1. Random move with probability BACTERIA_STOCHASTICITY.
+2. Stay if fortified and pressure is low.
+3. Flee nearby macrophage if planktonic and threatened.
+4. Move to richer nutrient neighbor if local nutrient is poor.
+5. Move down chemokine gradient when pressure rises.
+6. Otherwise cluster with nearby bacteria to support colony formation.
 
-## 6.4 Neutrophil movement and attack
+## 5.3 Neutrophils
 
-Source: simulator/environment.py.
+Not present at start; recruited by chemokine threshold events.
 
 Behavior:
-1. If bacteria are within NEUTROPHIL_SENSE_RADIUS, move one step toward nearest target.
+1. Move toward nearest local bacterium within sense radius.
 2. Otherwise random walk.
-3. Attack adjacent bacteria with NEUTROPHIL_KILL_DAMAGE.
-4. Die when age reaches NEUTROPHIL_LIFESPAN.
+3. Attack adjacent bacteria.
+4. Die at lifespan limit.
 
-## 7. Bacterial State Machine and Replication
+## 6. How Interaction Happens Per Step
 
-Source: simulator/environment.py + config.py.
+Source: Environment.step.
 
-### 7.1 State transitions
+Order:
+1. Select macrophage action.
+2. Execute macrophage action.
+3. Execute bacteria phase.
+4. Execute neutrophil phase.
+5. Update nutrients, chemokine, recruitment queue, damage.
+6. Increment time and update phase label.
+7. Record history.
+8. Check terminal conditions.
 
-Planktonic -> Attached:
-1. Must be on a surface patch.
-2. Nutrient at tile must be >= REPLICATION_REQUIRES_MIN_PATCH_RESOURCE.
-3. attach_timer must reach ATTACHMENT_TIME_REQUIRED.
+This order matters. Example: if macrophage signals now, chemokine can influence recruitment pressure soon after, which changes future neutrophil arrival and bacterial decisions.
 
-Attached -> Microcolony:
-1. biofilm_timer increments each step.
-2. If chemokine pressure gets high and dispersal_cooldown allows, can revert to planktonic.
-3. Else reaches microcolony after BIOFILM_BUILD_TIME.
+## 7. Chemokine Pressure: Meaning and Role
 
-Microcolony -> Biofilm:
-1. biofilm_timer continues increasing.
-2. Switch to biofilm when timer exceeds mature threshold.
+Chemokine pressure is the local immune-signaling burden represented by the chemokine field value at each tile.
 
-Biofilm -> Planktonic dispersal:
-1. If chemokine pressure becomes high enough and cooldown allows.
+Operational meaning in this model:
+1. High chemokine means the local region is immunologically "hot".
+2. High chemokine increases recruitment likelihood (via threshold crossing).
+3. High chemokine reduces bacterial replication probability.
+4. High chemokine encourages dispersal from attached/biofilm trajectories.
 
-### 7.2 Replication gate
+Field update dynamics:
+1. Production: macrophage attack/signal and contact-associated contributions.
+2. Spread: diffusion to walkable neighbors.
+3. Loss: decay each step.
+4. Perturbation: optional noise.
 
-Replication requires all of:
-1. If REPLICATION_REQUIRES_ATTACHMENT is true, planktonic cannot replicate.
-2. Local nutrient >= REPLICATION_REQUIRES_MIN_PATCH_RESOURCE.
-3. Local bacterial crowding < LOCAL_CARRYING_CAPACITY.
-4. Random success under probability:
+This is called pressure because it makes bacterial persistence harder while pushing the system toward stronger immune intervention.
 
-p = BASE_REPLICATION_PROB - (chemokine * IMMUNE_PRESSURE_REPLICATION_PENALTY)
+## 8. Phase Model: What Phases Mean and How They Are Chosen
 
-Then scaled down in microcolony/biofilm by BIOFILM_REPLICATION_MODIFIER.
+Current phase labels are produced by direct rules in _update_phase_label, not by a learned classifier.
 
-## 8. Chemokine and Recruitment Dynamics
+Selection logic:
+1. escalation: if neutrophils > 0 and bacteria > 0
+2. recruitment: else if recruitment queue is non-empty
+3. detection_containment: else if chemokine max > 1.0
+4. seeding: otherwise
 
-Source: simulator/environment.py.
+Interpretation:
+1. seeding: initial local establishment, low signal.
+2. detection_containment: macrophage has detected/engaged enough to raise signal.
+3. recruitment: threshold crossed recently and delayed reinforcements are pending.
+4. escalation: neutrophils and bacteria coexist, high-pressure conflict with damage risk.
 
-Per step field process:
-1. Chemokine increases via macrophage attack/signal and contact-associated effects.
-2. Diffusion redistributes concentration to walkable neighbors.
-3. Decay applies global damping.
-4. Optional Gaussian noise perturbs gradients.
+Important note:
+Phase labels are descriptive runtime tags for analysis and plotting. They are not hard constraints that force actions.
 
-Recruitment queue logic:
-1. If chemokine peak >= NEUTROPHIL_RECRUITMENT_THRESHOLD, enqueue a future spawn event at current_step + NEUTROPHIL_ARRIVAL_DELAY.
-2. When due, spawn neutrophils from boundary walkable cells (if pool cap not exceeded).
-3. Each recruited neutrophil contributes to immune_usage.
+## 9. Nutrient Field: Why It Matters
 
-## 9. Tissue Damage and Utility
+Nutrients are not decorative.
 
-Host utility used for planning/reporting:
+They regulate:
+1. Whether attachment progression is sustained.
+2. Whether replication is allowed.
+3. Where bacteria prefer to move.
+4. How fast local burden can recover after attacks.
+
+Dynamics:
+1. Regeneration: each active tissue cell recovers toward PATCH_NUTRIENT_CAPACITY.
+2. Consumption: bacteria drain local nutrient and may gain health if enough consumed.
+
+So nutrient heterogeneity directly shapes survival strategy, replication windows, and phase timing.
+
+## 10. Bacterial State Machine and Replication Gate
+
+State chain:
+1. planktonic -> attached
+2. attached -> microcolony
+3. microcolony -> biofilm
+4. biofilm -> planktonic (under high pressure + cooldown conditions)
+
+Replication requires all gates passing:
+1. Attachment gate if REPLICATION_REQUIRES_ATTACHMENT is true.
+2. Nutrient gate at tile.
+3. Local crowding gate (carrying capacity).
+4. Probabilistic gate reduced by chemokine pressure.
+
+This prevents trivial runaway growth from pure movement luck.
+
+## 11. Tissue Damage and Utility
+
+Host utility equation:
 
 HostUtility = killed_bacteria - alpha * tissue_damage - beta * immune_usage
 
@@ -233,75 +222,113 @@ Where:
 1. alpha = HOST_UTILITY_ALPHA
 2. beta = HOST_UTILITY_BETA
 
-Tissue damage increases from:
-1. Active neutrophil burden.
-2. Existing bacterial burden.
-3. Additional inflammation penalty when both are present.
+Damage sources:
+1. Neutrophil collateral effect.
+2. Ongoing bacterial burden.
+3. Extra inflammation penalty when both coexist.
 
-## 10. End Conditions
+This makes aggressive response a strategic trade-off, not always optimal.
 
-Simulation terminates when first true:
-1. Macrophage health <= 0 (Bacteria win).
-2. Tissue damage >= TISSUE_DAMAGE_FAIL_THRESHOLD (Bacteria win).
-3. No bacteria remain (Host win).
-4. step_count >= TIME_HORIZON with persistence (Bacteria win).
+## 12. Visual Semantics in the Current GUI
 
-## 11. What Is Logged Per Episode
+This section explains exactly what you asked about: black walls, green blocks, pale white dots, slight red color, and white-like regions.
 
-History tracks:
-1. step
-2. phase
-3. macrophage_health
-4. bacteria_count
-5. neutrophil_count
-6. tissue_damage
-7. host_utility
-8. colonized_compartments
-9. chemokine_peak
-10. nutrient_total
+### 12.1 Dark black/charcoal lines
 
-Additional internal counters:
-1. killed_bacteria
-2. immune_usage
-3. chemokine_events
-4. macrophage_position_frequency
-5. action_effect_frequency
+Meaning:
+1. Structural wall cells between compartments.
+2. These are non-walkable except at carved doorway spans.
 
-## 12. Clarification of Visual Semantics in Current GUI
+Role:
+1. Constrains paths.
+2. Creates bottlenecks.
+3. Makes containment/local escape patterns non-trivial.
 
-Current research-style GUI meanings:
-1. Dark wall cells: compartment boundaries and bottlenecks.
-2. Green intensity: local nutrient level.
-3. Red circles: bacteria.
-4. Blue circle: macrophage.
-5. Cyan circles: neutrophils.
-6. Red translucent overlay: chemokine concentration.
-7. Small pale dots: surface patches that support attachment progression.
+### 12.2 Green blocks (different intensity)
 
-## 13. Answers to Your Specific Questions
+Meaning:
+1. Tissue nutrient level.
+2. Darker green = richer nutrient.
+3. Paler green/near-white = poorer nutrient.
 
-Q1: "Was maximum nutrient coverage intentional to mimic biology and create richer interaction?"
-A1: Yes. Nutrient-rich tissue distribution is intentional and supports non-trivial bacterial behavior, replication gating, and spatial trade-offs.
+Role:
+1. Controls bacterial replication viability.
+2. Influences bacterial movement strategy.
 
-Q2: "What algorithm are agents using?"
-A2:
-1. Macrophage: rollout-based MCTS-style planner with utility evaluator and heuristic fallback.
-2. Bacteria: adaptive local rule policy with stochastic branch.
-3. Neutrophils: deterministic nearest-target pursuit within sensing radius, otherwise random walk.
+### 12.3 Pale white dots
 
-Q3: "How does interaction really happen?"
-A3: Through a strict step pipeline where host action changes chemokine pressure, bacterial state/movement/replication reacts to nutrients and pressure, then recruited neutrophils enter with delay and increase both kill pressure and collateral damage.
+Meaning:
+1. Surface patches (attachment-friendly micro-sites).
 
-Q4: "Are inter-compartment pathways truly enterable by cells?"
-A4: Yes after the doorway-walkability fix: doorway tiles are now both unblocked and walkable in compartment_map, so agents can traverse bottlenecks across compartments.
+Role:
+1. Enable and stabilize transition from planktonic toward attached states when nutrients are sufficient.
+2. Without these, biofilm trajectory opportunities reduce sharply.
 
-## 14. Minimal Validation Checklist for Future Changes
+### 12.4 Slight red translucent color (wash/overlay)
 
-When changing environment dynamics, verify these invariants:
-1. At least one traversable path exists between any adjacent compartments through doorway bottlenecks.
-2. Planktonic bacteria cannot replicate when REPLICATION_REQUIRES_ATTACHMENT is true.
-3. Recruitment only occurs after threshold crossing plus arrival delay.
-4. Tissue damage rises under sustained neutrophil activity.
-5. Host utility decreases if damage and immune overuse dominate clearance.
+Meaning:
+1. Chemokine concentration overlay.
+2. Stronger red wash = higher local chemokine pressure.
 
-Keeping this checklist prevents silent regressions in the biological interaction logic.
+Role:
+1. Visual indicator of immune signaling hot zones.
+2. Predicts likely recruitment and local replication suppression.
+
+### 12.5 White or almost-white cells
+
+Meaning in current UI:
+1. Usually low-nutrient tissue cells (base nutrient color is very light).
+2. In old minimal UI versions, white-like cells could also mean generic empty/background tile.
+
+Role:
+1. Biologically in this model: resource-poor zones where bacteria are less likely to replicate effectively.
+2. Visually: contrast anchor to make gradients and overlays interpretable.
+
+## 13. Terminal Conditions
+
+Run ends when one condition is reached:
+1. Macrophage health <= 0.
+2. Tissue damage >= fail threshold.
+3. Bacteria count == 0.
+4. Time horizon reached with bacterial persistence.
+
+## 14. Key Logs and What They Mean
+
+Recorded per step:
+1. phase
+2. macrophage health
+3. bacterial count
+4. neutrophil count
+5. tissue damage
+6. host utility
+7. colonized compartments
+8. chemokine peak
+9. nutrient total
+
+Why these matter:
+1. They separate "won" from "won safely".
+2. They expose whether control required harmful escalation.
+3. They let you compare policy behavior, not just final labels.
+
+## 15. Practical Interpretation: Is This Good Enough for Research Use?
+
+For exploratory algorithmic interaction studies: yes.
+
+For high-fidelity translational biology claims: no, not by itself.
+
+Appropriate claim level right now:
+1. This is a controlled mechanistic interaction model inspired by biological principles.
+2. It is suitable for studying policy behavior, trade-offs, and phase transitions.
+3. It is not a substitute for multi-scale validated physiological simulation.
+
+That is the correct scientific positioning of the current system.
+
+## 16. Minimal Invariant Checklist
+
+When modifying code, verify:
+1. Adjacent compartments have at least one traversable doorway path.
+2. Replication gates still enforce attachment/nutrient/crowding logic.
+3. Recruitment still requires threshold plus delay.
+4. Damage rises under sustained neutrophil activity.
+5. Utility can penalize over-escalation despite clearance.
+6. Phase labels still follow runtime logic and remain interpretable.
