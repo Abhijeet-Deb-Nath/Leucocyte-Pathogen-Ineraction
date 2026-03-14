@@ -1,75 +1,63 @@
-"""
-Run a single simulation with PyQt5 GUI and save results.
-"""
+"""Run a single Pathway 1 simulation and save outputs."""
+
+import argparse
 import sys
 from pathlib import Path
-# Add parent directory to path so we can import from simulator, agents, etc.
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from simulator.environment import Environment
-from visualization.pyqt_gui import launch_gui
-from visualization.plots import save_performance_plots, save_heatmap
-import config
 
 
-def run():
-    """Run a single simulation with PyQt5 visualization and save results."""
-    # Initialize environment
-    print("Initializing simulation environment...")
+def run(headless=True, verbose=False):
     env = Environment()
-    
-    # Launch PyQt5 GUI (blocks until GUI is closed)
-    print("Launching PyQt5 GUI...")
-    launch_gui(env)
-    
-    # After GUI closes, save results
-    print("\nSaving results...")
+
+    if not headless:
+        from visualization.pyqt_gui import launch_gui
+
+        launch_gui(env)
+    else:
+        while not env.done:
+            env.step()
+
     save_results(env)
-    print("Simulation complete!")
+    if verbose:
+        print_summary(env)
 
 
 def save_results(env):
-    """Save simulation results to files."""
-    # Save performance plots and heatmaps
-    if config.SAVE_PLOTS:
-        print("  - Generating performance plots...")
-        save_performance_plots(env, filename_prefix="performance")
-        
-        print("  - Generating heatmaps...")
-        save_heatmap(env.macrophage_position_frequency, 
-                    "Macrophage Position Frequency", 
-                    "heatmap_macrophage.png")
-        save_heatmap(env.toxin_effect_frequency, 
-                    "Toxin Usage Frequency", 
-                    "heatmap_toxin.png")
-    
-    # Save history data to CSV
-    print("  - Saving history to CSV...")
     df = pd.DataFrame(env.history)
-    df.to_csv("simulation_history.csv", index=False)
-    
-    # Print summary
-    print_summary(env)
+    df.to_csv("simulation_history_pathway1.csv", index=False)
 
 
 def print_summary(env):
-    """Print a summary of the simulation outcome."""
-    print("\n" + "="*60)
-    print("SIMULATION SUMMARY")
-    print("="*60)
-    print(f"Total Steps: {env.step_count}")
-    print(f"Final Macrophage Health: {env.macrophage.health}/100")
+    print("=" * 64)
+    print("PATHWAY 1 SIMULATION SUMMARY")
+    print("=" * 64)
+    print(f"Winner: {env.winner}")
+    print(f"Reason: {env.win_reason}")
+    print(f"Steps: {env.step_count}")
+    print(f"Final Macrophage Health: {env.macrophage.health}")
     print(f"Final Bacteria Count: {len(env.bacteria)}")
-    print(f"Remaining Nutrients: {len(env.nutrients)}")
-    
-    if env.winner:
-        print(f"\n🏆 Winner: {env.winner}")
-        print(f"   Reason: {env.win_reason}")
-    else:
-        print(f"\n⚠️  No decisive winner (simulation timeout)")
-    
-    print("="*60 + "\n")
+    print(f"Final Neutrophil Count: {len(env.neutrophils)}")
+    print(f"Final Tissue Damage: {env.tissue_damage:.2f}")
+    print(f"Host Utility: {env.compute_host_utility():.2f}")
+    print("=" * 64)
+
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(description="Run one Pathway 1 simulation")
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run without GUI",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print terminal summary after the run",
+    )
+    args = parser.parse_args()
+    run(headless=args.headless, verbose=args.verbose)

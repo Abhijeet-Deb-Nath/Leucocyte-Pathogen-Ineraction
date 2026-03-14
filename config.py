@@ -1,59 +1,112 @@
-""" 
-Global configuration for the macrophage vs Pseudomonas simulation.
-All tunable parameters and hyperparameters for the simulation are defined here.
-"""
-GRID_SIZE = 30  # Grid dimension (GRID_SIZE x GRID_SIZE)
-TIME_HORIZON = 300  # Maximum number of steps in a simulation
+"""Pathway 1 configuration: Acute alveolar hotspot immune-pathogen simulation."""
 
-# Macrophage parameters
-MACROPHAGE_HEALTH = 100  # Initial health of macrophage
-MACROPHAGE_VISION_RADIUS = 999  # Vision radius of macrophage (999 = entire grid visibility)
-ROLLOUT_BUDGET = 0  # MCTS rollout budget (0 = use heuristic only for debugging)
-MACROPHAGE_TOXIN_RADIUS = 1  # Radius of toxin burst (Manhattan distance)
-MACROPHAGE_TOXIN_DAMAGE = 50  # Damage dealt by toxin burst to bacteria in range
+# ---------------------------
+# Core episode configuration
+# ---------------------------
+TIME_HORIZON = 220
+SEED = None
 
-# Bacteria parameters
-INITIAL_BACTERIA_COUNT = 5  # Initial number of bacteria
-BACTERIA_MAX_HEALTH = 20  # Health of a fully mature bacteria
-BACTERIA_INITIAL_HEALTH_WEAK = 10  # Health of a newly replicated bacteria
-BACTERIA_HEALTH_REGEN = 1  # Health regained per step (for newly spawned bacteria to mature)
-BACTERIA_MATURITY_AGE = 5  # Steps needed for bacteria to become fully mature
-BACTERIA_ATTACK_DAMAGE = 10  # Damage to macrophage per successful attack
-BACTERIA_ATTACK_PROB = 0.3  # Probability of a successful attack when adjacent
-BACTERIA_REPLICATION_PROB = 0.02  # Base probability of replication per step (if bacteria is healthy)
-BACTERIA_REPLICATION_PROB_BOOST = 0.1  # Additional replication probability if the bacteria just consumed a nutrient
-BACTERIA_MAX_COUNT = 40  # If bacteria population reaches this, they win
+# ---------------------------
+# Compartment world geometry
+# ---------------------------
+WORLD_ROWS = 2
+WORLD_COLS = 2
+COMPARTMENT_SIZE = 10
+PASSAGE_BOTTLENECK_WIDTH = 2
+SURFACE_PATCH_DENSITY = 0.22
 
-# Quorum sensing and biofilm (Pseudomonas aeruginosa characteristics)
-QUORUM_SENSING_ENABLED = True  # Enable bacterial communication
-QUORUM_THRESHOLD = 3  # Number of nearby bacteria to trigger quorum sensing
-QUORUM_RADIUS = 3  # Radius to check for quorum sensing
-BIOFILM_DEFENSE_BONUS = 5  # Damage reduction when in biofilm
-BIOFILM_ATTACK_BONUS = 5  # Extra damage when attacking from biofilm
+# Derived global grid size used by existing visualization tooling.
+GRID_SIZE = WORLD_ROWS * COMPARTMENT_SIZE + (WORLD_ROWS - 1)
+N_COMPARTMENTS = WORLD_ROWS * WORLD_COLS
 
-# Bacterial virulence factors
-VIRULENCE_ENABLED = True  # Enable bacterial toxin production
-VIRULENCE_DAMAGE_PER_STEP = 2  # Passive damage to macrophage from nearby virulent bacteria
-VIRULENCE_RADIUS = 2  # Range of bacterial toxin effect
-VIRULENCE_ACTIVATION_PROB = 0.15  # Probability mature bacteria activates virulence per step
+# ---------------------------
+# Initial populations
+# ---------------------------
+INITIAL_BACTERIA_COUNT = 3
+INITIAL_MACROPHAGE_COUNT = 1
+MAX_NEUTROPHIL_POOL = 12
 
-# Macrophage exhaustion
-MACROPHAGE_EXHAUSTION_ENABLED = True  # Macrophage gets tired from fighting
-MACROPHAGE_EXHAUSTION_PER_KILL = 3  # Exhaustion gained per bacteria killed
-MACROPHAGE_EXHAUSTION_RECOVERY = 1  # Exhaustion recovered per step when not fighting
-MACROPHAGE_EXHAUSTION_DAMAGE_THRESHOLD = 20  # Above this exhaustion, macrophage takes extra damage
-MACROPHAGE_TOXIN_COOLDOWN = 3  # Steps needed before toxin can be used again
+# ---------------------------
+# Macrophage model
+# ---------------------------
+MACROPHAGE_MAX_HEALTH = 140
+MACROPHAGE_BASE_KILL_DAMAGE = 16
+MACROPHAGE_ATTACK_RADIUS = 1
+MACROPHAGE_SENSE_RADIUS = 6
+MACROPHAGE_SIGNAL_STRENGTH = 5.0
+MACROPHAGE_SIGNAL_COOLDOWN = 2
 
-# Nutrient parameters
-NUTRIENTS_ENABLED = True  # Whether nutrients are placed on the grid
-N_INITIAL_NUTRIENTS = 10  # Number of nutrient cells initially
-NUTRIENT_HEAL_AMOUNT = 10  # Health boost for bacteria when stepping on a nutrient
+# Compatibility alias for older code paths.
+MACROPHAGE_HEALTH = MACROPHAGE_MAX_HEALTH
 
-# Performance / simulation parameters
-MCTS_SIM_DEPTH = 20  # Depth of simulation in each MCTS rollout (how many steps to simulate ahead)
-SAVE_PLOTS = True  # Whether to save performance plots (bacteria count vs time, etc.)
+# ---------------------------
+# Bacteria model
+# ---------------------------
+BACTERIA_MAX_HEALTH = 24
+BACTERIA_INITIAL_HEALTH = 14
+BACTERIA_MATURITY_AGE = 3
+BACTERIA_ATTACK_DAMAGE = 5
+BACTERIA_ATTACK_PROB = 0.25
+BACTERIA_SENSE_RADIUS_MACROPHAGE = 4
+BACTERIA_SENSE_RADIUS_NUTRIENT = 4
 
-# Bacteria behavior modes
-BACTERIA_MODE = "scatter"  # Default behavior mode: "cluster", "scatter", "replicate", "defend", or "adaptive"
-BACTERIA_ADAPTIVE_ENABLED = True  # Use adaptive AI instead of fixed behavior modes
-BACTERIA_STOCHASTICITY = 0.15  # Amount of randomness in bacteria decisions (0.0 = deterministic, 1.0 = random)
+# State transition and biofilm trade-offs.
+ATTACHMENT_TIME_REQUIRED = 2
+BIOFILM_BUILD_TIME = 3
+BIOFILM_DEFENSE_MULTIPLIER = 0.55
+BIOFILM_MOTILITY_PENALTY = True
+BIOFILM_REPLICATION_MODIFIER = 0.75
+BIOFILM_DISPERSAL_DELAY = 2
+
+# ---------------------------
+# Resource and replication model
+# ---------------------------
+PATCH_NUTRIENT_CAPACITY = 14.0
+PATCH_REGEN_RATE = 0.2
+REPLICATION_REQUIRES_ATTACHMENT = True
+REPLICATION_REQUIRES_MIN_PATCH_RESOURCE = 4.0
+LOCAL_CARRYING_CAPACITY = 4
+BASE_REPLICATION_PROB = 0.35
+IMMUNE_PRESSURE_REPLICATION_PENALTY = 0.22
+
+# ---------------------------
+# Chemokine and recruitment
+# ---------------------------
+CHEMOKINE_RELEASE_PER_CONTACT = 2.5
+CHEMOKINE_DECAY = 0.9
+CHEMOKINE_DIFFUSION_RATE = 0.06
+CHEMOKINE_GRADIENT_NOISE = 0.03
+NEUTROPHIL_RECRUITMENT_THRESHOLD = 8.0
+NEUTROPHIL_ARRIVAL_DELAY = 7
+NEUTROPHIL_SENSE_RADIUS = 7
+NEUTROPHIL_KILL_DAMAGE = 22
+NEUTROPHIL_LIFESPAN = 18
+
+# ---------------------------
+# Tissue damage and utility
+# ---------------------------
+TISSUE_DAMAGE_FROM_NEUTROPHILS = 0.45
+TISSUE_DAMAGE_FROM_BACTERIA = 0.1
+DAMAGE_FROM_PROLONGED_INFLAMMATION = 0.05
+TISSUE_DAMAGE_FAIL_THRESHOLD = 180.0
+
+HOST_UTILITY_ALPHA = 1.0
+HOST_UTILITY_BETA = 0.35
+
+# ---------------------------
+# Bacteria strategy controls
+# ---------------------------
+BACTERIA_ADAPTIVE_ENABLED = True
+BACTERIA_STOCHASTICITY = 0.12
+BACTERIA_MODE = "adaptive"
+
+# ---------------------------
+# Planning/search
+# ---------------------------
+ROLLOUT_BUDGET = 40
+MCTS_SIM_DEPTH = 12
+
+# ---------------------------
+# Output controls
+# ---------------------------
+SAVE_PLOTS = True

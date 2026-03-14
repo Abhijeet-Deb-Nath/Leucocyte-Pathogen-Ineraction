@@ -1,50 +1,62 @@
-"""
-Example of parameter sweep experiments.
-This script runs multiple simulations with different parameters and logs the outcomes.
-"""
+"""Pathway 1 parameter sweep focused on recruitment delay and damage scaling."""
+
+import sys
+from pathlib import Path
+
 import pandas as pd
-from simulator.environment import Environment
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import config
+from simulator.environment import Environment
+
 
 def run_param_sweep():
-    results = []
-    # Save original config values that we might modify
-    orig_mode = config.BACTERIA_MODE
-    orig_vis = config.ENABLE_VISUALIZATION
-    orig_snap = config.SAVE_SNAPSHOTS
-    orig_plot = config.SAVE_PLOTS
+    original_delay = config.NEUTROPHIL_ARRIVAL_DELAY
+    original_damage = config.TISSUE_DAMAGE_FROM_NEUTROPHILS
+
+    scenarios = [
+        (5, 0.35),
+        (7, 0.45),
+        (10, 0.55),
+    ]
+
+    records = []
     try:
-        # Turn off visualization and saving during sweeps for performance
-        config.ENABLE_VISUALIZATION = False
-        config.SAVE_SNAPSHOTS = False
-        config.SAVE_PLOTS = False
-        # Sweep over different bacteria behavior modes as an example
-        for mode in ["cluster", "scatter", "replicate", "defend"]:
-            config.BACTERIA_MODE = mode
-            env = Environment()
-            # Run until done or horizon
-            for step in range(config.TIME_HORIZON):
-                env.step()
-                if env.done:
-                    break
-            # Record result
-            outcome = {
-                "bacteria_mode": mode,
-                "winner": env.winner if env.winner else "None",
-                "win_reason": env.win_reason if env.win_reason else "N/A",
-                "steps_taken": env.step_count
-            }
-            results.append(outcome)
-            print(f"Mode {mode}: winner={outcome['winner']} (reason: {outcome['win_reason']}) in {outcome['steps_taken']} steps.")
-        # Convert results to DataFrame and save
-        df = pd.DataFrame(results)
-        df.to_csv("param_sweep_results.csv", index=False)
+        for delay, damage in scenarios:
+            config.NEUTROPHIL_ARRIVAL_DELAY = delay
+            config.TISSUE_DAMAGE_FROM_NEUTROPHILS = damage
+
+            for trial in range(6):
+                env = Environment(seed=trial)
+                while not env.done:
+                    env.step()
+
+                records.append(
+                    {
+                        "delay": delay,
+                        "damage_per_neutrophil": damage,
+                        "trial": trial,
+                        "winner": env.winner,
+                        "steps": env.step_count,
+                        "tissue_damage": env.tissue_damage,
+                        "host_utility": env.compute_host_utility(),
+                        "final_bacteria": len(env.bacteria),
+                    }
+                )
+                print(
+                    f"delay={delay}, damage={damage}, trial={trial}, "
+                    f"winner={env.winner}, utility={env.compute_host_utility():.2f}"
+                )
     finally:
-        # Restore original config
-        config.BACTERIA_MODE = orig_mode
-        config.ENABLE_VISUALIZATION = orig_vis
-        config.SAVE_SNAPSHOTS = orig_snap
-        config.SAVE_PLOTS = orig_plot
+        config.NEUTROPHIL_ARRIVAL_DELAY = original_delay
+        config.TISSUE_DAMAGE_FROM_NEUTROPHILS = original_damage
+
+    df = pd.DataFrame(records)
+    df.to_csv("pathway1_param_sweep_results.csv", index=False)
+    return df
+
 
 if __name__ == "__main__":
-    run_param_sweep()
+    summary = run_param_sweep()
+    print(summary.groupby(["delay", "damage_per_neutrophil"])["host_utility"].mean())
