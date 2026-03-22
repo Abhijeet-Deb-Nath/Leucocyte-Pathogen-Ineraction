@@ -402,7 +402,7 @@ class MacrophageObservationBuilder:
             size = 2 * self.partial_radius + 1
             grid_shape = (6, size, size)
 
-        scalar_len = 10
+        scalar_len = 9
         if self.include_belief_features:
             scalar_len += config.N_COMPARTMENTS * 3
 
@@ -456,7 +456,6 @@ class MacrophageObservationBuilder:
             float(env.macrophage.signal_cooldown / max(1, config.MACROPHAGE_SIGNAL_COOLDOWN)),
             float(min(visible_bacteria, config.INITIAL_BACTERIA_COUNT * 4) / max(1, config.INITIAL_BACTERIA_COUNT * 4)),
             float(visible_neutrophils / max(1, config.MAX_NEUTROPHIL_POOL)),
-            float(min(len(env.recruitment_queue), config.MAX_NEUTROPHIL_POOL) / max(1, config.MAX_NEUTROPHIL_POOL)),
             float(
                 np.clip(
                     local_peak_chem / chem_scale,
@@ -766,6 +765,9 @@ class MacrophageGymEnv(_GYM_BASE):
         current_pos = self.env.macrophage.position
         killed_before = int(self.env.killed_bacteria)
         queued_reinforcements_before = int(len(self.env.recruitment_queue))
+        composite_burden_before = (
+            0.6 * float(self.env.chemokine.max()) + 0.4 * float(self.env.recent_chemokine_burden)
+        )
         visible_bacteria_before = self.env.get_local_bacteria(
             current_pos, config.MACROPHAGE_SENSE_RADIUS
         )
@@ -795,6 +797,9 @@ class MacrophageGymEnv(_GYM_BASE):
         new_pos = self.env.macrophage.position
         killed_after = int(self.env.killed_bacteria)
         queued_reinforcements_after = int(len(self.env.recruitment_queue))
+        composite_burden_after = (
+            0.6 * float(self.env.chemokine.max()) + 0.4 * float(self.env.recent_chemokine_burden)
+        )
         adjacent_after = bool(self.env._adjacent_bacteria(new_pos))
 
         observation = self.observer.observe(self.env)
@@ -832,13 +837,16 @@ class MacrophageGymEnv(_GYM_BASE):
                     reward -= config.RL_IDLE_WITHOUT_CUE_PENALTY
             elif safe_action[0] in {"signal", "signal_low", "signal_medium", "signal_high"}:
                 local_pressure = len(visible_bacteria_before) - 0.75 * len(visible_neutrophils_before)
-                support_missing = (
-                    len(visible_neutrophils_before) == 0 and queued_reinforcements_before == 0
+                help_likely_pending = (
+                    len(visible_neutrophils_before) > 0
+                    or local_peak_before >= config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 0.75
                 )
+                support_missing = not help_likely_pending
                 queue_growth = max(
                     0,
                     queued_reinforcements_after - queued_reinforcements_before,
                 )
+                burden_progress = max(0.0, composite_burden_after - composite_burden_before)
                 local_signal_window = (
                     local_peak_before
                     >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD * 0.75
@@ -862,16 +870,18 @@ class MacrophageGymEnv(_GYM_BASE):
                         reward += config.RL_CONTEXTUAL_SIGNAL_BONUS * signal_strength_scale
                         pressure_margin = max(0.0, local_pressure - config.HEURISTIC_SIGNAL_PRESSURE_LOW)
                         reward += min(0.2, 0.08 * pressure_margin)
+                        reward += burden_progress * config.RL_SIGNAL_PROGRESS_BONUS
                         if queue_growth > 0:
                             reward += config.RL_EFFECTIVE_SIGNAL_BONUS
-                        else:
+                        elif burden_progress <= 0.05:
                             reward -= config.RL_INEFFECTIVE_SIGNAL_PENALTY
                     elif support_missing and local_signal_window:
+                        reward += burden_progress * config.RL_SIGNAL_PROGRESS_BONUS
                         if queue_growth > 0:
                             reward += 0.5 * config.RL_EFFECTIVE_SIGNAL_BONUS
-                        else:
-                            reward -= 0.75 * config.RL_INEFFECTIVE_SIGNAL_PENALTY
-                    elif queued_reinforcements_before > 0 or visible_neutrophils_before:
+                        elif burden_progress <= 0.05:
+                            reward -= 0.5 * config.RL_INEFFECTIVE_SIGNAL_PENALTY
+                    elif help_likely_pending:
                         reward -= config.RL_REDUNDANT_SIGNAL_PENALTY
                     else:
                         reward -= config.RL_SIGNAL_WHILE_VISIBLE_BACTERIA_PENALTY
@@ -879,13 +889,14 @@ class MacrophageGymEnv(_GYM_BASE):
                     support_missing
                     and local_peak_before >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD
                 ):
+                    reward += burden_progress * config.RL_SIGNAL_PROGRESS_BONUS
                     if queue_growth > 0:
                         reward += 0.35 * config.RL_EFFECTIVE_SIGNAL_BONUS
-                    else:
+                    elif burden_progress <= 0.05:
                         reward -= config.RL_BLIND_SIGNAL_PENALTY
                 elif local_peak_before < config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 0.4:
                     reward -= config.RL_BLIND_SIGNAL_PENALTY
-                elif queued_reinforcements_before > 0:
+                elif help_likely_pending:
                     reward -= config.RL_REDUNDANT_SIGNAL_PENALTY
                 elif nearest_visible_distance is not None and nearest_visible_distance > 2:
                     reward -= config.RL_DISTANT_SIGNAL_PENALTY

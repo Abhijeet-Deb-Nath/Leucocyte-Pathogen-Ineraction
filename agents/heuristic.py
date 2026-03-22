@@ -48,8 +48,12 @@ class HeuristicAgent:
                 config.MACROPHAGE_SIGNAL_TRIGGER_RADIUS,
             )
             pressure = len(nearby_bacteria) - 0.75 * len(nearby_neutrophils)
-            support_missing = len(nearby_neutrophils) == 0 and not env.recruitment_queue
             low_health = env.macrophage.health <= config.MACROPHAGE_MAX_HEALTH * 0.45
+            help_likely_pending = (
+                len(nearby_neutrophils) > 0
+                or local_peak >= config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 0.85
+            )
+            support_missing = not help_likely_pending
 
             # Favor direct engagement unless the local burden is severe or the
             # macrophage is already under clear pressure.

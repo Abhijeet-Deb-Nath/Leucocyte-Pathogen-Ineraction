@@ -109,7 +109,6 @@ def _collect_expert_dataset(
                 "visible_neutrophils": len(visible_neutrophils),
                 "adjacent_bacteria": int(bool(env.env._adjacent_bacteria(current_pos))),
                 "local_peak": float(local_peak),
-                "queued_reinforcements": int(len(env.env.recruitment_queue)),
                 "local_pressure": float(
                     len(visible_bacteria) - 0.75 * len(visible_neutrophils)
                 ),
@@ -147,9 +146,12 @@ def _behavior_clone_pretrain(model, observations, action_indices, metadata, bc_e
         visible_neutrophils = int(meta["visible_neutrophils"])
         adjacent_bacteria = int(meta["adjacent_bacteria"])
         local_peak = float(meta["local_peak"])
-        queued_reinforcements = int(meta["queued_reinforcements"])
         local_pressure = float(meta["local_pressure"])
         approaches_visible = bool(meta["approaches_visible_bacteria"])
+        help_likely_pending = (
+            visible_neutrophils > 0
+            or local_peak >= config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 0.85
+        )
 
         if action == ("attack", None):
             sample_weights.append(10.0 if adjacent_bacteria else 2.5)
@@ -157,22 +159,22 @@ def _behavior_clone_pretrain(model, observations, action_indices, metadata, bc_e
             if adjacent_bacteria:
                 sample_weights.append(0.15)
             elif visible_bacteria > 0:
-                if queued_reinforcements > 0 or visible_neutrophils > 0:
-                    sample_weights.append(0.2)
+                if help_likely_pending:
+                    sample_weights.append(0.15)
                 elif local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM:
-                    sample_weights.append(2.8)
+                    sample_weights.append(4.0)
                 elif (
                     local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_LOW
                     and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD * 0.75
                 ):
-                    sample_weights.append(1.4)
+                    sample_weights.append(2.2)
                 else:
-                    sample_weights.append(0.35)
+                    sample_weights.append(0.5)
             elif (
-                queued_reinforcements == 0
+                not help_likely_pending
                 and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD
             ):
-                sample_weights.append(0.4)
+                sample_weights.append(0.25)
             else:
                 sample_weights.append(0.1)
         elif action == ("move", (0, 0)):
