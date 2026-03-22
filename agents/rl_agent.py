@@ -8,9 +8,12 @@ from pathlib import Path
 import numpy as np
 
 from simulator.rl_interface import (
+    LEGACY_MACROPHAGE_ACTIONS,
     MACROPHAGE_ACTIONS,
     MacrophageObservationBuilder,
     action_from_index,
+    is_action_available,
+    resolve_policy_action,
     sanitize_action,
 )
 
@@ -41,6 +44,7 @@ class RLMacrophageAgent:
             raise FileNotFoundError(f"RL model not found: {model_path}")
 
         self.model, self._is_recurrent = self._load_model(resolved_model_path)
+        self._action_catalog = self._detect_action_catalog()
         model_obs_space = getattr(self.model, "observation_space", None)
         include_action_mask = bool(
             getattr(model_obs_space, "spaces", None)
@@ -51,6 +55,7 @@ class RLMacrophageAgent:
             include_belief_features=include_belief_features,
             partial_radius=partial_radius,
             include_action_mask=include_action_mask,
+            action_catalog=self._action_catalog,
         )
         self._uses_action_mask = include_action_mask
         self.deterministic = deterministic
@@ -80,6 +85,14 @@ class RLMacrophageAgent:
         joined = "; ".join(errors) if errors else "no available loader"
         raise RuntimeError(f"Unable to load RL model from {resolved_model_path}: {joined}")
 
+    def _detect_action_catalog(self):
+        action_n = int(getattr(self.model.action_space, "n", len(MACROPHAGE_ACTIONS)))
+        if action_n == len(MACROPHAGE_ACTIONS):
+            return list(MACROPHAGE_ACTIONS)
+        if action_n == len(LEGACY_MACROPHAGE_ACTIONS):
+            return list(LEGACY_MACROPHAGE_ACTIONS)
+        raise ValueError(f"Unsupported RL action-space size: {action_n}")
+
     def reset(self, env):
         self.observer.reset(env)
         self._initialized = True
@@ -99,13 +112,14 @@ class RLMacrophageAgent:
                 deterministic=self.deterministic,
             )
             self._episode_start = np.array([False], dtype=np.bool_)
-            action = action_from_index(int(np.asarray(action_idx).item()))
+            action = action_from_index(int(np.asarray(action_idx).item()), self._action_catalog)
         elif self.deterministic and not self._uses_action_mask:
             action = self._predict_best_valid_action(observation, env)
         else:
             action_idx, _ = self.model.predict(observation, deterministic=self.deterministic)
-            action = action_from_index(int(action_idx))
-        safe_action, _ = sanitize_action(env, action)
+            action = action_from_index(int(action_idx), self._action_catalog)
+        resolved_action = resolve_policy_action(env, action)
+        safe_action, _ = sanitize_action(env, resolved_action)
         return safe_action
 
     def _predict_best_valid_action(self, observation, env):
@@ -115,14 +129,13 @@ class RLMacrophageAgent:
             distribution = self.model.policy.get_distribution(obs_tensor)
             probs = distribution.distribution.probs.detach().cpu().numpy().reshape(-1)
 
-        valid_actions = set(env.get_macrophage_actions())
         best_idx = None
         best_prob = -1.0
-        for idx, action in enumerate(MACROPHAGE_ACTIONS):
-            if action in valid_actions and probs[idx] > best_prob:
+        for idx, action in enumerate(self._action_catalog):
+            if is_action_available(env, action) and probs[idx] > best_prob:
                 best_idx = idx
                 best_prob = float(probs[idx])
 
         if best_idx is None:
             return ("move", (0, 0))
-        return action_from_index(best_idx)
+        return action_from_index(best_idx, self._action_catalog)

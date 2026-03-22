@@ -15,6 +15,7 @@ from simulator.rl_interface import (
     MacrophageGymEnv,
     MaskedMacrophagePolicy,
     MaskedRecurrentMacrophagePolicy,
+    action_to_index,
 )
 
 
@@ -38,6 +39,7 @@ def _make_env(
             guided_start_prob=guided_start_prob,
             env_id=env_id,
             deterministic_reset_stream=deterministic_reset_stream,
+            action_catalog=MACROPHAGE_ACTIONS,
         )
         return env
 
@@ -102,7 +104,7 @@ def _collect_expert_dataset(
             )
 
         observations.append({key: np.array(value, copy=True) for key, value in obs.items()})
-        actions.append(MACROPHAGE_ACTIONS.index(action))
+        actions.append(action_to_index(action, MACROPHAGE_ACTIONS))
         metadata.append(
             {
                 "visible_bacteria": len(visible_bacteria),
@@ -117,7 +119,7 @@ def _collect_expert_dataset(
                 ),
             }
         )
-        obs, _, terminated, truncated, _ = env.step(MACROPHAGE_ACTIONS.index(action))
+        obs, _, terminated, truncated, _ = env.step(action_to_index(action, MACROPHAGE_ACTIONS))
         if terminated or truncated:
             obs, _ = env.reset()
             expert.reset(env.env)
@@ -155,7 +157,7 @@ def _behavior_clone_pretrain(model, observations, action_indices, metadata, bc_e
 
         if action == ("attack", None):
             sample_weights.append(10.0 if adjacent_bacteria else 2.5)
-        elif action[0] in {"signal", "signal_low", "signal_medium", "signal_high"}:
+        elif action[0] == "request_help":
             if adjacent_bacteria:
                 sample_weights.append(0.15)
             elif visible_bacteria > 0:

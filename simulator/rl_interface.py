@@ -89,7 +89,7 @@ except ImportError:
     _GYM_BASE = object
 
 
-MACROPHAGE_ACTIONS = [
+LEGACY_MACROPHAGE_ACTIONS = [
     ("move", (-1, 0)),
     ("move", (1, 0)),
     ("move", (0, -1)),
@@ -99,6 +99,16 @@ MACROPHAGE_ACTIONS = [
     ("signal_low", None),
     ("signal_medium", None),
     ("signal_high", None),
+]
+
+MACROPHAGE_ACTIONS = [
+    ("move", (-1, 0)),
+    ("move", (1, 0)),
+    ("move", (0, -1)),
+    ("move", (0, 1)),
+    ("move", (0, 0)),
+    ("attack", None),
+    ("request_help", None),
 ]
 
 
@@ -141,11 +151,97 @@ except ImportError:
     _RNNStates = None
 
 
-def build_action_mask(env):
-    mask = np.zeros(len(MACROPHAGE_ACTIONS), dtype=np.float32)
-    valid_actions = set(env.get_macrophage_actions())
-    for idx, action in enumerate(MACROPHAGE_ACTIONS):
-        if action in valid_actions:
+def _select_signal_action_from_level(action_set, level):
+    priority = {
+        "high": [
+            ("signal_high", None),
+            ("signal_medium", None),
+            ("signal", None),
+            ("signal_low", None),
+        ],
+        "medium": [
+            ("signal_medium", None),
+            ("signal", None),
+            ("signal_low", None),
+            ("signal_high", None),
+        ],
+        "low": [
+            ("signal_low", None),
+            ("signal_medium", None),
+            ("signal", None),
+            ("signal_high", None),
+        ],
+    }.get(level, [])
+    for candidate in priority:
+        if candidate in action_set:
+            return candidate
+    return None
+
+
+def _signal_actions_available(env):
+    return any(
+        action[0] in {"signal", "signal_low", "signal_medium", "signal_high"}
+        for action in env.get_macrophage_actions()
+    )
+
+
+def resolve_policy_action(env, candidate_action):
+    if candidate_action[0] != "request_help":
+        return candidate_action
+
+    action_set = set(env.get_macrophage_actions())
+    if not _signal_actions_available(env):
+        return ("move", (0, 0))
+
+    current_pos = env.macrophage.position
+    visible_bacteria = env.get_local_bacteria(current_pos, config.MACROPHAGE_SENSE_RADIUS)
+    visible_neutrophils = env.get_local_neutrophils(current_pos, config.MACROPHAGE_SENSE_RADIUS)
+    pressure = len(visible_bacteria) - 0.75 * len(visible_neutrophils)
+    low_health = env.macrophage.health <= config.MACROPHAGE_MAX_HEALTH * 0.45
+
+    if pressure >= config.HEURISTIC_SIGNAL_PRESSURE_HIGH or (
+        low_health and pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM
+    ):
+        signal_action = _select_signal_action_from_level(action_set, "high")
+        if signal_action is not None:
+            return signal_action
+    if pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM:
+        signal_action = _select_signal_action_from_level(action_set, "medium")
+        if signal_action is not None:
+            return signal_action
+
+    signal_action = _select_signal_action_from_level(action_set, "low")
+    if signal_action is not None:
+        return signal_action
+    return ("move", (0, 0))
+
+
+def action_to_index(action, action_catalog=None):
+    catalog = MACROPHAGE_ACTIONS if action_catalog is None else list(action_catalog)
+    if action in catalog:
+        return catalog.index(action)
+    if ("request_help", None) in catalog and action[0] in {
+        "signal",
+        "signal_low",
+        "signal_medium",
+        "signal_high",
+    }:
+        return catalog.index(("request_help", None))
+    raise ValueError(f"Action {action} is not present in the policy action catalog")
+
+
+def is_action_available(env, candidate_action):
+    if candidate_action[0] == "request_help":
+        return _signal_actions_available(env)
+    return candidate_action in set(env.get_macrophage_actions())
+
+
+def build_action_mask(env, action_catalog=None):
+    catalog = MACROPHAGE_ACTIONS if action_catalog is None else list(action_catalog)
+    for_catalog = catalog
+    mask = np.zeros(len(for_catalog), dtype=np.float32)
+    for idx, action in enumerate(for_catalog):
+        if is_action_available(env, action):
             mask[idx] = 1.0
     return mask
 
@@ -370,6 +466,7 @@ class MacrophageObservationBuilder:
         partial_radius=None,
         include_belief_features=None,
         include_action_mask=False,
+        action_catalog=None,
     ):
         if mode not in {"full_state", "partial_state"}:
             raise ValueError("mode must be 'full_state' or 'partial_state'")
@@ -383,6 +480,7 @@ class MacrophageObservationBuilder:
             else bool(include_belief_features)
         )
         self.include_action_mask = bool(include_action_mask)
+        self.action_catalog = MACROPHAGE_ACTIONS if action_catalog is None else list(action_catalog)
         self.belief = BeliefState()
 
     def reset(self, env):
@@ -414,7 +512,7 @@ class MacrophageObservationBuilder:
             obs_spaces["action_mask"] = spaces.Box(
                 low=0.0,
                 high=1.0,
-                shape=(len(MACROPHAGE_ACTIONS),),
+                shape=(len(self.action_catalog),),
                 dtype=np.float32,
             )
         return spaces.Dict(obs_spaces)
@@ -477,7 +575,7 @@ class MacrophageObservationBuilder:
             "scalars": np.asarray(scalars, dtype=np.float32),
         }
         if self.include_action_mask:
-            observation["action_mask"] = build_action_mask(env)
+            observation["action_mask"] = build_action_mask(env, self.action_catalog)
         return observation
 
     def _local_chemokine_peak(self, env):
@@ -658,10 +756,11 @@ class MacrophageObservationBuilder:
         return np.concatenate([bacteria_comp, chem_comp, visited]).tolist()
 
 
-def action_from_index(action_idx):
+def action_from_index(action_idx, action_catalog=None):
+    catalog = MACROPHAGE_ACTIONS if action_catalog is None else list(action_catalog)
     idx = int(action_idx)
-    idx = max(0, min(len(MACROPHAGE_ACTIONS) - 1, idx))
-    return MACROPHAGE_ACTIONS[idx]
+    idx = max(0, min(len(catalog) - 1, idx))
+    return catalog[idx]
 
 
 def sanitize_action(env, candidate_action):
@@ -695,6 +794,7 @@ class MacrophageGymEnv(_GYM_BASE):
         guided_start_prob=0.0,
         env_id=0,
         deterministic_reset_stream=False,
+        action_catalog=None,
     ):
         _, spaces = _load_gym_modules()
         self.base_seed = None if seed is None else int(seed)
@@ -702,14 +802,16 @@ class MacrophageGymEnv(_GYM_BASE):
         self.episode_index = 0
         self.deterministic_reset_stream = bool(deterministic_reset_stream)
         self.guided_start_prob = float(np.clip(guided_start_prob, 0.0, 1.0))
+        self.action_catalog = MACROPHAGE_ACTIONS if action_catalog is None else list(action_catalog)
         self.env = None
         self.observer = MacrophageObservationBuilder(
             mode=observation_mode,
             partial_radius=partial_radius,
             include_belief_features=include_belief_features,
             include_action_mask=include_action_mask,
+            action_catalog=self.action_catalog,
         )
-        self.action_space = spaces.Discrete(len(MACROPHAGE_ACTIONS))
+        self.action_space = spaces.Discrete(len(self.action_catalog))
 
         bootstrap_seed = self._derive_episode_seed(explicit_seed=self.base_seed)
         bootstrap_env = self._build_env(bootstrap_seed)
@@ -761,7 +863,7 @@ class MacrophageGymEnv(_GYM_BASE):
         return observation, info
 
     def step(self, action):
-        action_tuple = action_from_index(action)
+        action_tuple = action_from_index(action, self.action_catalog)
         current_pos = self.env.macrophage.position
         killed_before = int(self.env.killed_bacteria)
         queued_reinforcements_before = int(len(self.env.recruitment_queue))
@@ -790,7 +892,8 @@ class MacrophageGymEnv(_GYM_BASE):
             if self.observer.mode == "partial_state"
             else float(self.env.chemokine.max())
         )
-        safe_action, fallback_used = sanitize_action(self.env, action_tuple)
+        resolved_action = resolve_policy_action(self.env, action_tuple)
+        safe_action, fallback_used = sanitize_action(self.env, resolved_action)
 
         # RL path always supplies explicit macrophage actions and never calls step(None).
         self.env.step(macrophage_action=safe_action)
