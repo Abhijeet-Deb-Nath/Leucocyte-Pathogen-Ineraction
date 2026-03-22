@@ -57,7 +57,7 @@ def _collect_expert_dataset(
 ):
     expert_steps = max(0, int(expert_steps))
     if expert_steps <= 0:
-        return [], np.asarray([], dtype=np.int64), []
+        return [], np.asarray([], dtype=np.int64), [], []
 
     env = MacrophageGymEnv(
         observation_mode=obs_mode,
@@ -74,6 +74,10 @@ def _collect_expert_dataset(
     observations = []
     actions = []
     metadata = []
+    trajectories = []
+    current_trajectory_obs = []
+    current_trajectory_actions = []
+    current_trajectory_meta = []
 
     obs, _ = env.reset(seed=seed)
     expert.reset(env.env)
@@ -101,33 +105,110 @@ def _collect_expert_dataset(
             nearest_after = min(
                 abs(b.position[0] - next_pos[0]) + abs(b.position[1] - next_pos[1])
                 for b in visible_bacteria
-            )
-
-        observations.append({key: np.array(value, copy=True) for key, value in obs.items()})
-        actions.append(action_to_index(action, MACROPHAGE_ACTIONS))
-        metadata.append(
-            {
-                "visible_bacteria": len(visible_bacteria),
-                "visible_neutrophils": len(visible_neutrophils),
-                "adjacent_bacteria": int(bool(env.env._adjacent_bacteria(current_pos))),
-                "local_peak": float(local_peak),
-                "local_pressure": float(
-                    len(visible_bacteria) - 0.75 * len(visible_neutrophils)
-                ),
-                "approaches_visible_bacteria": int(
-                    nearest_before is not None and nearest_after is not None and nearest_after < nearest_before
-                ),
-            }
         )
-        obs, _, terminated, truncated, _ = env.step(action_to_index(action, MACROPHAGE_ACTIONS))
+
+        stored_obs = {key: np.array(value, copy=True) for key, value in obs.items()}
+        action_idx = action_to_index(action, MACROPHAGE_ACTIONS)
+        meta = {
+            "visible_bacteria": len(visible_bacteria),
+            "visible_neutrophils": len(visible_neutrophils),
+            "adjacent_bacteria": int(bool(env.env._adjacent_bacteria(current_pos))),
+            "local_peak": float(local_peak),
+            "local_pressure": float(
+                len(visible_bacteria) - 0.75 * len(visible_neutrophils)
+            ),
+            "approaches_visible_bacteria": int(
+                nearest_before is not None and nearest_after is not None and nearest_after < nearest_before
+            ),
+        }
+
+        observations.append(stored_obs)
+        actions.append(action_idx)
+        metadata.append(meta)
+        current_trajectory_obs.append(stored_obs)
+        current_trajectory_actions.append(action_idx)
+        current_trajectory_meta.append(meta)
+
+        obs, _, terminated, truncated, _ = env.step(action_idx)
         if terminated or truncated:
+            trajectories.append(
+                {
+                    "observations": current_trajectory_obs,
+                    "actions": np.asarray(current_trajectory_actions, dtype=np.int64),
+                    "metadata": list(current_trajectory_meta),
+                }
+            )
+            current_trajectory_obs = []
+            current_trajectory_actions = []
+            current_trajectory_meta = []
             obs, _ = env.reset()
             expert.reset(env.env)
 
-    return observations, np.asarray(actions, dtype=np.int64), metadata
+    if current_trajectory_actions:
+        trajectories.append(
+            {
+                "observations": current_trajectory_obs,
+                "actions": np.asarray(current_trajectory_actions, dtype=np.int64),
+                "metadata": list(current_trajectory_meta),
+            }
+        )
+
+    return observations, np.asarray(actions, dtype=np.int64), metadata, trajectories
 
 
-def _behavior_clone_pretrain(model, observations, action_indices, metadata, bc_epochs, bc_batch_size):
+def _bc_sample_weight(action, meta):
+    visible_bacteria = int(meta["visible_bacteria"])
+    visible_neutrophils = int(meta["visible_neutrophils"])
+    adjacent_bacteria = int(meta["adjacent_bacteria"])
+    local_peak = float(meta["local_peak"])
+    local_pressure = float(meta["local_pressure"])
+    approaches_visible = bool(meta["approaches_visible_bacteria"])
+    help_likely_pending = (
+        visible_neutrophils > 0
+        or local_peak >= config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 0.85
+    )
+
+    if action == ("attack", None):
+        return 10.0 if adjacent_bacteria else 2.5
+    if action == ("request_help", None):
+        if adjacent_bacteria:
+            return 0.15
+        if visible_bacteria > 0:
+            if help_likely_pending:
+                return 0.15
+            if local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM:
+                return 4.0
+            if (
+                local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_LOW
+                and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD * 0.75
+            ):
+                return 2.2
+            return 0.5
+        if (
+            not help_likely_pending
+            and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD
+        ):
+            return 0.25
+        return 0.1
+    if action == ("move", (0, 0)):
+        return 0.05 if visible_bacteria > 0 else 0.15
+    if visible_bacteria > 0:
+        return 5.8 if approaches_visible else 0.45
+    if local_peak > 0.12:
+        return 1.6
+    return 0.55
+
+
+def _behavior_clone_pretrain(
+    model,
+    observations,
+    action_indices,
+    metadata,
+    trajectories,
+    bc_epochs,
+    bc_batch_size,
+    bc_sequence_length,
+):
     bc_epochs = max(0, int(bc_epochs))
     if bc_epochs <= 0 or len(action_indices) == 0:
         return
@@ -141,55 +222,13 @@ def _behavior_clone_pretrain(model, observations, action_indices, metadata, bc_e
         for key in observations[0]
     }
     actions_tensor = torch.as_tensor(action_indices, dtype=torch.long, device=device)
-    sample_weights = []
-    for action_idx, meta in zip(action_indices, metadata):
-        action = MACROPHAGE_ACTIONS[int(action_idx)]
-        visible_bacteria = int(meta["visible_bacteria"])
-        visible_neutrophils = int(meta["visible_neutrophils"])
-        adjacent_bacteria = int(meta["adjacent_bacteria"])
-        local_peak = float(meta["local_peak"])
-        local_pressure = float(meta["local_pressure"])
-        approaches_visible = bool(meta["approaches_visible_bacteria"])
-        help_likely_pending = (
-            visible_neutrophils > 0
-            or local_peak >= config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 0.85
-        )
-
-        if action == ("attack", None):
-            sample_weights.append(10.0 if adjacent_bacteria else 2.5)
-        elif action[0] == "request_help":
-            if adjacent_bacteria:
-                sample_weights.append(0.15)
-            elif visible_bacteria > 0:
-                if help_likely_pending:
-                    sample_weights.append(0.15)
-                elif local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM:
-                    sample_weights.append(4.0)
-                elif (
-                    local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_LOW
-                    and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD * 0.75
-                ):
-                    sample_weights.append(2.2)
-                else:
-                    sample_weights.append(0.5)
-            elif (
-                not help_likely_pending
-                and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD
-            ):
-                sample_weights.append(0.25)
-            else:
-                sample_weights.append(0.1)
-        elif action == ("move", (0, 0)):
-            sample_weights.append(0.05 if visible_bacteria > 0 else 0.15)
-        else:
-            if visible_bacteria > 0:
-                sample_weights.append(5.8 if approaches_visible else 0.45)
-            elif local_peak > 0.12:
-                sample_weights.append(1.6)
-            else:
-                sample_weights.append(0.55)
+    sample_weights = [
+        _bc_sample_weight(MACROPHAGE_ACTIONS[int(action_idx)], meta)
+        for action_idx, meta in zip(action_indices, metadata)
+    ]
     weight_tensor = torch.as_tensor(sample_weights, dtype=torch.float32, device=device)
     batch_size = max(32, int(bc_batch_size))
+    sequence_length = max(4, int(bc_sequence_length))
     n_samples = int(actions_tensor.shape[0])
     is_recurrent_model = bool(getattr(model.policy, "lstm_hidden_state_shape", None))
 
@@ -197,45 +236,93 @@ def _behavior_clone_pretrain(model, observations, action_indices, metadata, bc_e
     optimizer = model.policy.optimizer
 
     for epoch in range(bc_epochs):
-        permutation = np.random.permutation(n_samples)
         epoch_loss = 0.0
         epoch_correct = 0
         seen = 0
-        for start in range(0, n_samples, batch_size):
-            batch_idx = permutation[start : start + batch_size]
-            batch_obs = {
-                key: values[batch_idx]
-                for key, values in stacked_obs.items()
-            }
-            obs_tensor, _ = model.policy.obs_to_tensor(batch_obs)
-            if is_recurrent_model:
+        if is_recurrent_model:
+            chunks = []
+            for traj_idx, trajectory in enumerate(trajectories):
+                traj_len = int(len(trajectory["actions"]))
+                for start in range(0, traj_len, sequence_length):
+                    end = min(traj_len, start + sequence_length)
+                    chunks.append((traj_idx, start, end))
+            np.random.shuffle(chunks)
+
+            for traj_idx, start, end in chunks:
+                trajectory = trajectories[traj_idx]
+                batch_obs = {
+                    key: np.stack(
+                        [step_obs[key] for step_obs in trajectory["observations"][start:end]],
+                        axis=0,
+                    )
+                    for key in trajectory["observations"][0]
+                }
+                obs_tensor, _ = model.policy.obs_to_tensor(batch_obs)
+                seq_len = int(end - start)
                 lstm_shape = tuple(int(v) for v in model.policy.lstm_hidden_state_shape)
                 recurrent_state = (
-                    torch.zeros((lstm_shape[0], len(batch_idx), lstm_shape[2]), dtype=torch.float32, device=device),
-                    torch.zeros((lstm_shape[0], len(batch_idx), lstm_shape[2]), dtype=torch.float32, device=device),
+                    torch.zeros((lstm_shape[0], 1, lstm_shape[2]), dtype=torch.float32, device=device),
+                    torch.zeros((lstm_shape[0], 1, lstm_shape[2]), dtype=torch.float32, device=device),
                 )
-                episode_starts = torch.ones((len(batch_idx),), dtype=torch.float32, device=device)
+                episode_starts = torch.zeros((seq_len,), dtype=torch.float32, device=device)
+                episode_starts[0] = 1.0
                 distribution, _ = model.policy.get_distribution(
                     obs_tensor,
                     recurrent_state,
                     episode_starts,
                 )
-            else:
+                logits = distribution.distribution.logits
+                batch_actions = torch.as_tensor(
+                    trajectory["actions"][start:end],
+                    dtype=torch.long,
+                    device=device,
+                )
+                batch_weights = torch.as_tensor(
+                    [
+                        _bc_sample_weight(MACROPHAGE_ACTIONS[int(action_idx)], meta)
+                        for action_idx, meta in zip(
+                            trajectory["actions"][start:end],
+                            trajectory["metadata"][start:end],
+                        )
+                    ],
+                    dtype=torch.float32,
+                    device=device,
+                )
+                per_item_loss = functional.cross_entropy(logits, batch_actions, reduction="none")
+                loss = (per_item_loss * batch_weights).sum() / torch.clamp(batch_weights.sum(), min=1.0)
+
+                optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.policy.parameters(), max_norm=0.5)
+                optimizer.step()
+
+                epoch_loss += float(loss.detach().cpu().item()) * seq_len
+                epoch_correct += int((logits.argmax(dim=1) == batch_actions).sum().detach().cpu().item())
+                seen += seq_len
+        else:
+            permutation = np.random.permutation(n_samples)
+            for start in range(0, n_samples, batch_size):
+                batch_idx = permutation[start : start + batch_size]
+                batch_obs = {
+                    key: values[batch_idx]
+                    for key, values in stacked_obs.items()
+                }
+                obs_tensor, _ = model.policy.obs_to_tensor(batch_obs)
                 distribution = model.policy.get_distribution(obs_tensor)
-            logits = distribution.distribution.logits
-            batch_actions = actions_tensor[batch_idx]
-            batch_weights = weight_tensor[batch_idx]
-            per_item_loss = functional.cross_entropy(logits, batch_actions, reduction="none")
-            loss = (per_item_loss * batch_weights).sum() / torch.clamp(batch_weights.sum(), min=1.0)
+                logits = distribution.distribution.logits
+                batch_actions = actions_tensor[batch_idx]
+                batch_weights = weight_tensor[batch_idx]
+                per_item_loss = functional.cross_entropy(logits, batch_actions, reduction="none")
+                loss = (per_item_loss * batch_weights).sum() / torch.clamp(batch_weights.sum(), min=1.0)
 
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.policy.parameters(), max_norm=0.5)
-            optimizer.step()
+                optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.policy.parameters(), max_norm=0.5)
+                optimizer.step()
 
-            epoch_loss += float(loss.detach().cpu().item()) * len(batch_idx)
-            epoch_correct += int((logits.argmax(dim=1) == batch_actions).sum().detach().cpu().item())
-            seen += len(batch_idx)
+                epoch_loss += float(loss.detach().cpu().item()) * len(batch_idx)
+                epoch_correct += int((logits.argmax(dim=1) == batch_actions).sum().detach().cpu().item())
+                seen += len(batch_idx)
 
         mean_loss = epoch_loss / max(1, seen)
         accuracy = epoch_correct / max(1, seen)
@@ -262,6 +349,7 @@ def train(
     recurrent,
     recurrent_hidden_size,
     recurrent_n_lstm_layers,
+    bc_sequence_length,
 ):
     try:
         sb3 = importlib.import_module("stable_baselines3")
@@ -376,7 +464,7 @@ def train(
         tensorboard_log=None,
     )
 
-    expert_observations, expert_actions, expert_metadata = _collect_expert_dataset(
+    expert_observations, expert_actions, expert_metadata, expert_trajectories = _collect_expert_dataset(
         obs_mode=obs_mode,
         seed=(seed + 50_000) if seed is not None else 50_000,
         include_belief_features=include_belief_features,
@@ -390,8 +478,10 @@ def train(
         expert_observations,
         expert_actions,
         expert_metadata,
+        expert_trajectories,
         bc_epochs=bc_epochs,
         bc_batch_size=batch_size,
+        bc_sequence_length=bc_sequence_length,
     )
 
     if timesteps > 0:
@@ -461,6 +551,12 @@ if __name__ == "__main__":
         help="Number of behavior-cloning epochs to run before PPO",
     )
     parser.add_argument(
+        "--bc-sequence-length",
+        type=int,
+        default=32,
+        help="Sequence length for recurrent behavior cloning chunks before PPO",
+    )
+    parser.add_argument(
         "--recurrent",
         action="store_true",
         help="Train a recurrent PPO policy (LSTM) for the partial-observation task",
@@ -497,4 +593,5 @@ if __name__ == "__main__":
         recurrent=bool(args.recurrent),
         recurrent_hidden_size=max(32, args.recurrent_hidden_size),
         recurrent_n_lstm_layers=max(1, args.recurrent_layers),
+        bc_sequence_length=max(4, args.bc_sequence_length),
     )
