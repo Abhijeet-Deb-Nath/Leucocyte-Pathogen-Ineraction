@@ -18,8 +18,9 @@ This repo now keeps one active host-control direction:
 
 The learned-controller stack currently includes:
 - recurrent inference support in `agents/rl_agent.py`
+- hierarchical policy / agent support in `agents/hierarchical_policy.py` and `agents/hierarchical_agent.py`
 - partial-observation wrapper and action abstraction in `simulator/rl_interface.py`
-- sequence-aware behavior-cloning bootstrap and optional PPO fine-tuning in `experiments/train_ppo.py`
+- hierarchical behavior-cloning, DAgger, and optional RL fine-tuning in `experiments/train_hierarchical.py`
 
 The active action abstraction is:
 - local movement
@@ -43,14 +44,24 @@ These were removed because they were no longer promising relative to the hardwar
 
 The repo is now aligned around this sequence:
 
-1. Train a recurrent partial-observation controller from expert demonstrations.
-2. Improve it with better supervision on the learner's own visited states.
-3. Add RL fine-tuning only after the imitation path becomes behaviorally competent.
+1. Train a hierarchical recurrent partial-observation controller from heuristic demonstrations.
+2. Improve it with DAgger on learner-visited states.
+3. Use RL fine-tuning only as a later extension if it improves the frozen DAgger model without destabilizing it.
 
-The next planned algorithmic upgrades are:
-- higher-level mode supervision such as `engage`, `request_help`, `follow_chem`, `patrol`
-- DAgger-style dataset aggregation on learner-visited states
-- optional RL fine-tuning after the imitation policy stops collapsing
+The current frozen mainline is:
+- hierarchical recurrent `BC + DAgger`
+- checkpoint path: `models/frozen/hier_dagger_main.pt`
+
+The current high-level modes are:
+- `engage`
+- `request_help`
+- `follow_chem`
+- `patrol`
+
+Current method status:
+- `heuristic`: teacher and baseline
+- `hierarchical BC + DAgger`: main paper-track learned controller
+- `hierarchical BC + DAgger + RL`: unstable extension / ablation, not the headline result
 
 ## Repository Layout
 
@@ -58,8 +69,8 @@ The next planned algorithmic upgrades are:
 - `simulator/`: environment, entities, RL wrapper
 - `experiments/`: training, evaluation, reproducibility checks, simulation runner
 - `visualization/`: GUI and plotting
-- `models/`: local checkpoint scratch space only; not versioned with artifacts
-- `results/`: intentionally documentation-only inside git; generated outputs should live outside version control
+- `models/`: local checkpoint space; `models/frozen/` is the stable home for the main learned checkpoint
+- `results/`: final evaluation summaries and minimal paper-track artifacts
 
 ## Setup
 
@@ -93,16 +104,22 @@ Run a headless heuristic-vs-learned evaluation:
 python -m experiments.evaluate_policies --episodes 20 --seed 123 --rl-model path/to/checkpoint --output-csv path/to/results.csv
 ```
 
-Run BC-only bootstrap:
+Run hierarchical BC-only bootstrap:
 
 ```bash
-python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 0 --bc-pretrain-steps 4096 --bc-epochs 8 --bc-sequence-length 32 --save-dir models/recurrent_bc
+python -m experiments.train_hierarchical --stages bc --save-dir models/hier_bc --bc-pretrain-steps 4096 --bc-epochs 8 --bc-sequence-length 32
 ```
 
-Run BC bootstrap plus PPO fine-tuning:
+Run hierarchical BC + DAgger:
 
 ```bash
-python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 30000 --save-dir models/recurrent_mainline
+python -m experiments.train_hierarchical --stages bc dagger --save-dir models/hier_dagger_main
+```
+
+Run hierarchical BC + DAgger + RL fine-tuning:
+
+```bash
+python -m experiments.train_hierarchical --stages bc dagger rl_finetune --save-dir models/hier_rl_extension
 ```
 
 ## Artifact Policy
@@ -116,11 +133,11 @@ Do not keep in git:
 - simulation history exports
 - remote experiment outputs
 
-Store those artifacts in Google Drive or another external location and only bring back specific files when you need local inspection.
+Store heavy artifacts in Google Drive or another external location and only bring back specific frozen checkpoints and final summaries when you need local inspection.
 
 ## Practical Recommendation
 
 Use the repo this way:
-- local machine: correctness checks, GUI inspection, short smoke checks
-- remote runtime: longer behavior-cloning and RL training
-- git repo: source code, documentation, and the current algorithmic path only
+- local machine: correctness checks, GUI inspection, and frozen-checkpoint demonstration
+- remote runtime: BC, DAgger, robustness evaluation, and any future controlled training extensions
+- git repo: source code, documentation, and the frozen mainline summaries

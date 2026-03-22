@@ -9,14 +9,22 @@ The repo is now organized around:
 - one heuristic teacher / baseline
 - one learned-controller mainline
 
-The learned controller is **not paper-ready yet**. The environment and teacher are solid, but the learned policy still needs a stronger training formulation.
+The learned controller has now reached a credible paper-track state.
+
+Current best learned method:
+- hierarchical recurrent `BC + DAgger`
+
+Current frozen checkpoint:
+- `models/frozen/hier_dagger_main.pt`
 
 ## What Is In The Code Right Now
 
 - partial-observation recurrent policy inference
+- hierarchical macro-mode supervision
 - abstract `request_help` action for the learned controller
 - sequence-aware recurrent behavior-cloning bootstrap
-- optional PPO fine-tuning after the BC stage
+- DAgger-style learner-state relabeling
+- optional RL fine-tuning after the DAgger stage
 - heuristic-vs-learned evaluation script
 - explicit-policy simulation runner with GUI support
 
@@ -38,33 +46,38 @@ These were removed because they were no longer the most promising path for:
 ## Honest Assessment
 
 Current evidence says:
-- the heuristic remains the only clearly competent controller
+- the heuristic is a strong teacher and baseline
 - flat PPO was not a good fit
 - planner-based control was too expensive and too weak for the demo setting
-- sequence-aware BC alone is still not enough
+- sequence-aware BC alone was not enough
+- hierarchical `BC + DAgger` produced the first competitive learned controller
+- the first RL fine-tuning attempt degraded the DAgger policy
 
-So the real blocker is **algorithm design**, not just training time or hardware.
+So the project is no longer blocked by “no viable learned path.” The next work is now about consolidation, reproducibility, robustness, and careful extensions.
 
 ## Active Research Direction
 
 The repo is now aligned around a single plan:
 
-1. Use the heuristic only to bootstrap the learned controller.
-2. Improve supervision on the learner's own visited states.
-3. Add RL fine-tuning only after imitation becomes behaviorally stable.
+1. Keep the benchmark environment fixed.
+2. Keep the heuristic only as teacher and baseline.
+3. Use hierarchical recurrent `BC + DAgger` as the main learned controller.
+4. Revisit RL fine-tuning only if it can improve the frozen DAgger checkpoint without destabilizing it.
 
-The next algorithmic steps should be:
-- add high-level mode supervision such as `engage`, `request_help`, `follow_chem`, `patrol`
-- add DAgger-style dataset aggregation
-- revisit RL fine-tuning only after the policy can reliably imitate useful escalation behavior
+The next experiment steps should be:
+- reproducibility across multiple training seeds
+- robustness suites under adversarial stress settings
+- GUI validation using the frozen DAgger checkpoint
+- paper tables for `heuristic`, `BC-only`, `BC+DAgger`, and `BC+DAgger+RL`
 
 ## What The Repo Is For Now
 
 This codebase should now be used for:
 - environment development
 - heuristic teacher inspection
-- learned-controller research
-- remote training experiments on the single active mainline
+- learned-controller research on the hierarchical mainline
+- remote training/evaluation experiments on the single active mainline
+- final demo and paper artifact organization
 
 This codebase should not be treated as:
 - a planner benchmark zoo
