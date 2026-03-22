@@ -79,6 +79,10 @@ def _collect_expert_dataset(
         action = expert.choose_action(env.env)
         current_pos = env.env.macrophage.position
         visible_bacteria = env.env.get_local_bacteria(current_pos, config.MACROPHAGE_SENSE_RADIUS)
+        visible_neutrophils = env.env.get_local_neutrophils(
+            current_pos,
+            config.MACROPHAGE_SENSE_RADIUS,
+        )
         local_peak = env.env.get_local_chemokine_peak(
             current_pos,
             config.MACROPHAGE_SIGNAL_TRIGGER_RADIUS,
@@ -102,8 +106,13 @@ def _collect_expert_dataset(
         metadata.append(
             {
                 "visible_bacteria": len(visible_bacteria),
+                "visible_neutrophils": len(visible_neutrophils),
                 "adjacent_bacteria": int(bool(env.env._adjacent_bacteria(current_pos))),
                 "local_peak": float(local_peak),
+                "queued_reinforcements": int(len(env.env.recruitment_queue)),
+                "local_pressure": float(
+                    len(visible_bacteria) - 0.75 * len(visible_neutrophils)
+                ),
                 "approaches_visible_bacteria": int(
                     nearest_before is not None and nearest_after is not None and nearest_after < nearest_before
                 ),
@@ -135,29 +144,42 @@ def _behavior_clone_pretrain(model, observations, action_indices, metadata, bc_e
     for action_idx, meta in zip(action_indices, metadata):
         action = MACROPHAGE_ACTIONS[int(action_idx)]
         visible_bacteria = int(meta["visible_bacteria"])
+        visible_neutrophils = int(meta["visible_neutrophils"])
         adjacent_bacteria = int(meta["adjacent_bacteria"])
         local_peak = float(meta["local_peak"])
+        queued_reinforcements = int(meta["queued_reinforcements"])
+        local_pressure = float(meta["local_pressure"])
         approaches_visible = bool(meta["approaches_visible_bacteria"])
 
         if action == ("attack", None):
             sample_weights.append(10.0 if adjacent_bacteria else 2.5)
         elif action[0] in {"signal", "signal_low", "signal_medium", "signal_high"}:
             if adjacent_bacteria:
-                sample_weights.append(0.25)
+                sample_weights.append(0.15)
             elif visible_bacteria > 0:
-                if visible_bacteria >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM:
-                    sample_weights.append(0.8)
+                if queued_reinforcements > 0 or visible_neutrophils > 0:
+                    sample_weights.append(0.6)
+                elif local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM:
+                    sample_weights.append(5.5)
+                elif (
+                    local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_LOW
+                    and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD * 0.75
+                ):
+                    sample_weights.append(3.5)
                 else:
-                    sample_weights.append(0.25)
-            elif local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD:
-                sample_weights.append(0.9)
+                    sample_weights.append(1.0)
+            elif (
+                queued_reinforcements == 0
+                and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD
+            ):
+                sample_weights.append(1.8)
             else:
                 sample_weights.append(0.3)
         elif action == ("move", (0, 0)):
             sample_weights.append(0.05 if visible_bacteria > 0 else 0.15)
         else:
             if visible_bacteria > 0:
-                sample_weights.append(6.5 if approaches_visible else 0.2)
+                sample_weights.append(4.8 if approaches_visible else 0.35)
             elif local_peak > 0.12:
                 sample_weights.append(1.6)
             else:

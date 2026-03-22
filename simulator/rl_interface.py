@@ -764,6 +764,7 @@ class MacrophageGymEnv(_GYM_BASE):
         action_tuple = action_from_index(action)
         current_pos = self.env.macrophage.position
         killed_before = int(self.env.killed_bacteria)
+        queued_reinforcements_before = int(len(self.env.recruitment_queue))
         visible_bacteria_before = self.env.get_local_bacteria(
             current_pos, config.MACROPHAGE_SENSE_RADIUS
         )
@@ -792,6 +793,7 @@ class MacrophageGymEnv(_GYM_BASE):
         self.env.step(macrophage_action=safe_action)
         new_pos = self.env.macrophage.position
         killed_after = int(self.env.killed_bacteria)
+        queued_reinforcements_after = int(len(self.env.recruitment_queue))
         adjacent_after = bool(self.env._adjacent_bacteria(new_pos))
 
         observation = self.observer.observe(self.env)
@@ -828,20 +830,49 @@ class MacrophageGymEnv(_GYM_BASE):
                 elif local_peak_before < config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD:
                     reward -= config.RL_IDLE_WITHOUT_CUE_PENALTY
             elif safe_action[0] in {"signal", "signal_low", "signal_medium", "signal_high"}:
-                local_pressure = len(visible_bacteria_before) - len(visible_neutrophils_before)
+                local_pressure = len(visible_bacteria_before) - 0.75 * len(visible_neutrophils_before)
+                support_missing = (
+                    len(visible_neutrophils_before) == 0 and queued_reinforcements_before == 0
+                )
+                local_signal_window = (
+                    local_peak_before
+                    >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD * 0.75
+                )
                 if adjacent_before:
                     reward -= config.RL_SIGNAL_WHILE_ADJACENT_BACTERIA_PENALTY
                 elif visible_bacteria_before:
-                    if (
+                    if support_missing and (
                         local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM
-                        and nearest_visible_distance is not None
-                        and nearest_visible_distance <= config.HEURISTIC_SIGNAL_PROXIMITY_RADIUS
+                        or (
+                            local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_LOW
+                            and local_signal_window
+                        )
                     ):
                         reward += config.RL_CONTEXTUAL_SIGNAL_BONUS
+                        pressure_margin = max(
+                            0.0,
+                            local_pressure - config.HEURISTIC_SIGNAL_PRESSURE_LOW,
+                        )
+                        reward += min(0.35, 0.15 * pressure_margin)
+                        if queued_reinforcements_after > queued_reinforcements_before:
+                            reward += 0.5 * config.RL_CONTEXTUAL_SIGNAL_BONUS
+                    elif support_missing and local_signal_window:
+                        reward += 0.4 * config.RL_CONTEXTUAL_SIGNAL_BONUS
+                    elif queued_reinforcements_before > 0 or visible_neutrophils_before:
+                        reward -= 0.5 * config.RL_SIGNAL_WHILE_VISIBLE_BACTERIA_PENALTY
                     else:
                         reward -= config.RL_SIGNAL_WHILE_VISIBLE_BACTERIA_PENALTY
+                elif (
+                    support_missing
+                    and local_peak_before >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD
+                ):
+                    reward += 0.35 * config.RL_CONTEXTUAL_SIGNAL_BONUS
+                    if queued_reinforcements_after > queued_reinforcements_before:
+                        reward += 0.5 * config.RL_CONTEXTUAL_SIGNAL_BONUS
                 elif local_peak_before < config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 0.4:
                     reward -= config.RL_BLIND_SIGNAL_PENALTY
+                elif queued_reinforcements_before > 0:
+                    reward -= 0.5 * config.RL_DISTANT_SIGNAL_PENALTY
                 elif nearest_visible_distance is not None and nearest_visible_distance > 2:
                     reward -= config.RL_DISTANT_SIGNAL_PENALTY
             elif visible_bacteria_before:

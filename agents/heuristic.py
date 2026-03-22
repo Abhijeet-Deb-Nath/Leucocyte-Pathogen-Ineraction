@@ -26,12 +26,6 @@ class HeuristicAgent:
             self.visited_positions.add(env.macrophage.position)
         actions = env.get_macrophage_actions()
         action_set = set(actions)
-        signal_actions = [
-            ("signal_high", None),
-            ("signal_medium", None),
-            ("signal_low", None),
-            ("signal", None),
-        ]
 
         mx, my = env.macrophage.position
         nearby_bacteria = env.get_local_bacteria((mx, my), self.sense_radius)
@@ -49,23 +43,39 @@ class HeuristicAgent:
                 key=lambda b: abs(b.position[0] - mx) + abs(b.position[1] - my),
             ).position
             nearest_distance = abs(target[0] - mx) + abs(target[1] - my)
+            local_peak = env.get_local_chemokine_peak(
+                (mx, my),
+                config.MACROPHAGE_SIGNAL_TRIGGER_RADIUS,
+            )
             pressure = len(nearby_bacteria) - 0.75 * len(nearby_neutrophils)
+            support_missing = len(nearby_neutrophils) == 0 and not env.recruitment_queue
             low_health = env.macrophage.health <= config.MACROPHAGE_MAX_HEALTH * 0.45
 
             # Favor direct engagement unless the local burden is severe or the
             # macrophage is already under clear pressure.
-            if pressure >= config.HEURISTIC_SIGNAL_PRESSURE_HIGH:
-                for candidate in signal_actions:
-                    if candidate in action_set:
-                        return candidate
-            elif (
-                pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM
-                and nearest_distance <= config.HEURISTIC_SIGNAL_PROXIMITY_RADIUS
-                and (low_health or len(nearby_neutrophils) == 0)
+            if pressure >= config.HEURISTIC_SIGNAL_PRESSURE_HIGH or (
+                low_health and pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM
             ):
-                for candidate in signal_actions[1:]:
-                    if candidate in action_set:
-                        return candidate
+                signal_action = self._select_signal_action(action_set, level="high")
+                if signal_action is not None:
+                    return signal_action
+            elif (
+                support_missing
+                and pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM
+                and nearest_distance <= config.HEURISTIC_SIGNAL_PROXIMITY_RADIUS + 1
+            ):
+                signal_action = self._select_signal_action(action_set, level="medium")
+                if signal_action is not None:
+                    return signal_action
+            elif (
+                support_missing
+                and pressure >= config.HEURISTIC_SIGNAL_PRESSURE_LOW
+                and nearest_distance <= self.sense_radius
+                and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD * 0.75
+            ):
+                signal_action = self._select_signal_action(action_set, level="low")
+                if signal_action is not None:
+                    return signal_action
             return self._move_toward_target(env, target)
 
         # Follow only locally sensed chemokine rather than any global peak.
@@ -176,3 +186,29 @@ class HeuristicAgent:
         if self.use_memory:
             self.visited_positions.add(chosen_pos)
         return chosen_action
+
+    def _select_signal_action(self, action_set, level):
+        priority = {
+            "high": [
+                ("signal_high", None),
+                ("signal_medium", None),
+                ("signal", None),
+                ("signal_low", None),
+            ],
+            "medium": [
+                ("signal_medium", None),
+                ("signal", None),
+                ("signal_low", None),
+                ("signal_high", None),
+            ],
+            "low": [
+                ("signal_low", None),
+                ("signal_medium", None),
+                ("signal", None),
+                ("signal_high", None),
+            ],
+        }.get(level, [])
+        for candidate in priority:
+            if candidate in action_set:
+                return candidate
+        return None
