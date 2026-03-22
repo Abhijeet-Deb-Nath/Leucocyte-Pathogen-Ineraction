@@ -1,0 +1,50 @@
+[
+  {
+    "stage": "bc",
+    "loss": 1.6956214370729867,
+    "macro_accuracy": 0.835205078125,
+    "micro_accuracy": 0.608154296875
+  },
+  {
+    "stage": "dagger_iter_1",
+    "loss": 1.6217170490320616,
+    "macro_accuracy": 0.7804361979166666,
+    "micro_accuracy": 0.6204427083333334
+  },
+  {
+    "stage": "dagger_iter_2",
+    "loss": 1.484500931117509,
+    "macro_accuracy": 0.78466796875,
+    "micro_accuracy": 0.6541748046875
+  },
+  {
+    "stage": "dagger_iter_3",
+    "loss": 1.4101375476398972,
+    "macro_accuracy": 0.79150390625,
+    "micro_accuracy": 0.68271484375
+  },
+  {
+    "stage": "rl_iter_1",
+    "policy_loss": 0.00040919949487917075,
+    "value_loss": 185.07770135768604,
+    "entropy": 1.1603002961302396
+  },
+  {
+    "stage": "rl_iter_2",
+    "policy_loss": -0.003390791936216024,
+    "value_loss": 141.6612983731407,
+    "entropy": 0.983253613847201
+  },
+  {
+    "stage": "rl_iter_3",
+    "policy_loss": 0.02317942273087876,
+    "value_loss": 89.87922367772958,
+    "entropy": 1.2182770768123274
+  },
+  {
+    "stage": "rl_iter_4",
+    "policy_loss": 0.008376109493418668,
+    "value_loss": 173.45982787291524,
+    "entropy": 1.2477300712175918
+  }
+]

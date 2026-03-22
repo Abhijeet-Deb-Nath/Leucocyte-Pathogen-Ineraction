@@ -8,6 +8,7 @@ How should a locally sensing macrophage control a stochastic bacterial infection
 
 For the formal environment and interaction rules, see `detailed_game_rule.md`.
 For the current research stage and next algorithmic milestones, see `PROJECT_STATUS.md`.
+For the frozen mainline result and experiment structure, see `FROZEN_MAINLINE.md`, `RESULTS_SUMMARY.md`, and `EXPERIMENT_MATRIX.md`.
 
 ## Active Research Line
 
@@ -62,6 +63,10 @@ Current method status:
 - `heuristic`: teacher and baseline
 - `hierarchical BC + DAgger`: main paper-track learned controller
 - `hierarchical BC + DAgger + RL`: unstable extension / ablation, not the headline result
+
+Headline held-out result:
+- on the current `100`-seed benchmark, the frozen DAgger controller is slightly better than the heuristic on `win_rate`, `tissue_damage`, and `host_utility`
+- full details are recorded in `RESULTS_SUMMARY.md`
 
 ## Repository Layout
 

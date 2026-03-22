@@ -17,6 +17,11 @@ Current best learned method:
 Current frozen checkpoint:
 - `models/frozen/hier_dagger_main.pt`
 
+Current result snapshot:
+- the frozen DAgger checkpoint is competitive with the heuristic and was slightly better on the main `100`-seed held-out evaluation
+- reproducibility across training seeds is mixed but still supports a competitive-method claim
+- see `RESULTS_SUMMARY.md` and `results/final_eval/REPRODUCIBILITY_SUMMARY.md`
+
 ## What Is In The Code Right Now
 
 - partial-observation recurrent policy inference
@@ -69,6 +74,8 @@ The next experiment steps should be:
 - robustness suites under adversarial stress settings
 - GUI validation using the frozen DAgger checkpoint
 - paper tables for `heuristic`, `BC-only`, `BC+DAgger`, and `BC+DAgger+RL`
+
+These are now organization-and-evidence steps, not “find a new mainline” steps.
 
 ## What The Repo Is For Now
 
