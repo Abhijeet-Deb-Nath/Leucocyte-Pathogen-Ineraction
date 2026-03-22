@@ -1,4 +1,4 @@
-"""Train PPO for macrophage-only control using the RL-safe Gym wrapper."""
+"""Train the learned macrophage controller with BC bootstrap and optional PPO fine-tuning."""
 
 import argparse
 import importlib
@@ -501,13 +501,15 @@ def train(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train PPO macrophage controller")
+    parser = argparse.ArgumentParser(
+        description="Train the partial-observation learned macrophage controller"
+    )
     parser.add_argument(
         "--obs-mode",
         type=str,
         default="partial_state",
-        choices=["full_state", "partial_state"],
-        help="Observation mode for PPO training",
+        choices=["partial_state"],
+        help="Public training entrypoint for the paper-track partial-observation benchmark",
     )
     parser.add_argument("--timesteps", type=int, default=150000, help="Total PPO training steps")
     parser.add_argument("--save-dir", type=str, default="models", help="Directory to save model artifacts")

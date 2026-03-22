@@ -458,7 +458,7 @@ else:
 
 
 class MacrophageObservationBuilder:
-    """Build full-state or partial-state observations for macrophage policy learning."""
+    """Build partial-state observations for macrophage policy learning."""
 
     def __init__(
         self,
@@ -468,8 +468,8 @@ class MacrophageObservationBuilder:
         include_action_mask=False,
         action_catalog=None,
     ):
-        if mode not in {"full_state", "partial_state"}:
-            raise ValueError("mode must be 'full_state' or 'partial_state'")
+        if mode != "partial_state":
+            raise ValueError("Only 'partial_state' observations are supported in the cleaned repo")
         self.mode = mode
         self.partial_radius = (
             config.RL_PARTIAL_OBS_RADIUS if partial_radius is None else int(partial_radius)
@@ -493,12 +493,8 @@ class MacrophageObservationBuilder:
 
     def observation_space(self, env):
         _, spaces = _load_gym_modules()
-
-        if self.mode == "full_state":
-            grid_shape = (6, env.height, env.width)
-        else:
-            size = 2 * self.partial_radius + 1
-            grid_shape = (6, size, size)
+        size = 2 * self.partial_radius + 1
+        grid_shape = (6, size, size)
 
         scalar_len = 9
         if self.include_belief_features:
@@ -519,35 +515,17 @@ class MacrophageObservationBuilder:
 
     def observe(self, env):
         self._update_belief(env)
-
-        if self.mode == "full_state":
-            grid = self._build_full_grid(env)
-            visible_bacteria = len(env.bacteria)
-            visible_neutrophils = len(env.neutrophils)
-            local_peak_chem = float(env.chemokine.max())
-            chem_scale = max(config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 1.5, 1e-6)
-            nearest_bacteria_dx, nearest_bacteria_dy = self._nearest_visible_bacteria_offset(
-                env,
-                bacteria=env.bacteria,
-                radius=max(env.width, env.height),
-            )
-            chem_dx, chem_dy = self._strongest_local_chem_offset(
-                env,
-                radius=max(env.width, env.height),
-                min_peak=0.0,
-            )
-        else:
-            grid, _, _ = self._build_partial_grid(env)
-            visible_bacteria = len(env.get_local_bacteria(env.macrophage.position, self.partial_radius))
-            visible_neutrophils = len(env.get_local_neutrophils(env.macrophage.position, self.partial_radius))
-            local_peak_chem = self._local_chemokine_peak(env)
-            chem_scale = max(config.MACROPHAGE_CHEM_SENSE_SCALE, 1e-6)
-            nearest_bacteria_dx, nearest_bacteria_dy = self._nearest_visible_bacteria_offset(env)
-            chem_dx, chem_dy = self._strongest_local_chem_offset(
-                env,
-                radius=self.partial_radius,
-                min_peak=max(0.02, config.BACTERIA_ALARM_CHEMOKINE_RELEASE * 0.25),
-            )
+        grid, _, _ = self._build_partial_grid(env)
+        visible_bacteria = len(env.get_local_bacteria(env.macrophage.position, self.partial_radius))
+        visible_neutrophils = len(env.get_local_neutrophils(env.macrophage.position, self.partial_radius))
+        local_peak_chem = self._local_chemokine_peak(env)
+        chem_scale = max(config.MACROPHAGE_CHEM_SENSE_SCALE, 1e-6)
+        nearest_bacteria_dx, nearest_bacteria_dy = self._nearest_visible_bacteria_offset(env)
+        chem_dx, chem_dy = self._strongest_local_chem_offset(
+            env,
+            radius=self.partial_radius,
+            min_peak=max(0.02, config.BACTERIA_ALARM_CHEMOKINE_RELEASE * 0.25),
+        )
 
         scalars = [
             float(env.macrophage.health / max(1, config.MACROPHAGE_MAX_HEALTH)),
@@ -561,10 +539,10 @@ class MacrophageObservationBuilder:
                     1.0,
                 )
             ),
-            self._offset_to_unit(nearest_bacteria_dx, max(1, self.partial_radius if self.mode == "partial_state" else env.width)),
-            self._offset_to_unit(nearest_bacteria_dy, max(1, self.partial_radius if self.mode == "partial_state" else env.height)),
-            self._offset_to_unit(chem_dx, max(1, self.partial_radius if self.mode == "partial_state" else env.width)),
-            self._offset_to_unit(chem_dy, max(1, self.partial_radius if self.mode == "partial_state" else env.height)),
+            self._offset_to_unit(nearest_bacteria_dx, max(1, self.partial_radius)),
+            self._offset_to_unit(nearest_bacteria_dy, max(1, self.partial_radius)),
+            self._offset_to_unit(chem_dx, max(1, self.partial_radius)),
+            self._offset_to_unit(chem_dy, max(1, self.partial_radius)),
         ]
 
         if self.include_belief_features:
@@ -626,34 +604,6 @@ class MacrophageObservationBuilder:
         normalized = np.clip(float(value) / float(scale), -1.0, 1.0)
         return float(0.5 + 0.5 * normalized)
 
-    def _build_full_grid(self, env):
-        blocked = np.zeros((env.height, env.width), dtype=np.float32)
-        for x, y in env.blocked_tiles:
-            blocked[y, x] = 1.0
-
-        nutrient = np.clip(env.nutrients / max(config.PATCH_NUTRIENT_CAPACITY, 1e-6), 0.0, 1.0).astype(
-            np.float32
-        )
-        chem = np.clip(
-            env.chemokine / max(config.NEUTROPHIL_RECRUITMENT_THRESHOLD * 1.5, 1e-6),
-            0.0,
-            1.0,
-        ).astype(np.float32)
-
-        bacteria = np.zeros((env.height, env.width), dtype=np.float32)
-        for b in env.bacteria:
-            bacteria[b.position[1], b.position[0]] = 1.0
-
-        neutrophils = np.zeros((env.height, env.width), dtype=np.float32)
-        for n in env.neutrophils:
-            neutrophils[n.position[1], n.position[0]] = 1.0
-
-        macrophage = np.zeros((env.height, env.width), dtype=np.float32)
-        mx, my = env.macrophage.position
-        macrophage[my, mx] = 1.0
-
-        return np.stack([blocked, nutrient, chem, bacteria, neutrophils, macrophage], axis=0)
-
     def _build_partial_grid(self, env):
         r = self.partial_radius
         size = 2 * r + 1
@@ -711,10 +661,7 @@ class MacrophageObservationBuilder:
         if self.belief.visited_compartments is not None and current_compartment >= 0:
             self.belief.visited_compartments[current_compartment] = 1.0
 
-        if self.mode == "full_state":
-            visible_bacteria = env.bacteria
-        else:
-            visible_bacteria = env.get_local_bacteria(env.macrophage.position, self.partial_radius)
+        visible_bacteria = env.get_local_bacteria(env.macrophage.position, self.partial_radius)
 
         if visible_bacteria:
             nearest = min(visible_bacteria, key=lambda b: abs(b.position[0] - mx) + abs(b.position[1] - my))
@@ -722,20 +669,15 @@ class MacrophageObservationBuilder:
             if cid >= 0:
                 self.belief.last_seen_bacteria_compartment = cid
 
-        if self.mode == "full_state":
-            chem = env.chemokine
-            peak_index = int(chem.argmax())
-            py, px = divmod(peak_index, env.width)
-        else:
-            r = self.partial_radius
-            x0, x1 = max(0, mx - r), min(env.width, mx + r + 1)
-            y0, y1 = max(0, my - r), min(env.height, my + r + 1)
-            local = env.chemokine[y0:y1, x0:x1]
-            if local.size == 0:
-                return
-            local_peak = int(local.argmax())
-            ly, lx = divmod(local_peak, local.shape[1])
-            px, py = x0 + lx, y0 + ly
+        r = self.partial_radius
+        x0, x1 = max(0, mx - r), min(env.width, mx + r + 1)
+        y0, y1 = max(0, my - r), min(env.height, my + r + 1)
+        local = env.chemokine[y0:y1, x0:x1]
+        if local.size == 0:
+            return
+        local_peak = int(local.argmax())
+        ly, lx = divmod(local_peak, local.shape[1])
+        px, py = x0 + lx, y0 + ly
 
         chem_compartment = int(env.compartment_map[py, px])
         if chem_compartment >= 0:
@@ -887,11 +829,7 @@ class MacrophageGymEnv(_GYM_BASE):
                 nearest_visible_target[1] - current_pos[1]
             )
         adjacent_before = bool(self.env._adjacent_bacteria(current_pos))
-        local_peak_before = (
-            self.observer._local_chemokine_peak(self.env)
-            if self.observer.mode == "partial_state"
-            else float(self.env.chemokine.max())
-        )
+        local_peak_before = self.observer._local_chemokine_peak(self.env)
         resolved_action = resolve_policy_action(self.env, action_tuple)
         safe_action, fallback_used = sanitize_action(self.env, resolved_action)
 

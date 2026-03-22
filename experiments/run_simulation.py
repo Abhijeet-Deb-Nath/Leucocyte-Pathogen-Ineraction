@@ -1,11 +1,11 @@
-"""Run a single Pathway 1 simulation and save outputs."""
+"""Run a single Pathway 1 simulation with an explicit controller."""
 
 import argparse
+from pathlib import Path
 
 import pandas as pd
 
 from agents.heuristic import HeuristicAgent
-from agents.mcts import MCTSAgent
 from agents.rl_agent import RLMacrophageAgent
 from simulator.environment import Environment
 
@@ -13,8 +13,6 @@ from simulator.environment import Environment
 def _build_policy(policy, rl_model_path=None, rl_obs_mode="partial_state"):
     if policy == "heuristic":
         return HeuristicAgent()
-    if policy == "mcts":
-        return MCTSAgent()
     if policy == "rl":
         if not rl_model_path:
             raise ValueError("--rl-model-path is required when --policy rl is selected")
@@ -22,7 +20,14 @@ def _build_policy(policy, rl_model_path=None, rl_obs_mode="partial_state"):
     raise ValueError(f"Unknown policy mode: {policy}")
 
 
-def run(headless=True, verbose=False, policy="mcts", rl_model_path=None, rl_obs_mode="partial_state"):
+def run(
+    headless=True,
+    verbose=False,
+    policy="heuristic",
+    rl_model_path=None,
+    rl_obs_mode="partial_state",
+    output_csv=None,
+):
     env = Environment()
     policy_agent = _build_policy(policy, rl_model_path=rl_model_path, rl_obs_mode=rl_obs_mode)
     if hasattr(policy_agent, "reset"):
@@ -37,14 +42,18 @@ def run(headless=True, verbose=False, policy="mcts", rl_model_path=None, rl_obs_
             action = policy_agent.choose_action(env)
             env.step(macrophage_action=action)
 
-    save_results(env)
+    save_results(env, output_csv=output_csv)
     if verbose:
         print_summary(env)
 
 
-def save_results(env):
+def save_results(env, output_csv=None):
+    if not output_csv:
+        return
+    output_path = Path(output_csv)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(env.history)
-    df.to_csv("simulation_history_pathway1.csv", index=False)
+    df.to_csv(output_path, index=False)
 
 
 def print_summary(env):
@@ -77,8 +86,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--policy",
         type=str,
-        default="mcts",
-        choices=["heuristic", "mcts", "rl"],
+        default="heuristic",
+        choices=["heuristic", "rl"],
         help="Macrophage policy mode",
     )
     parser.add_argument(
@@ -91,8 +100,14 @@ if __name__ == "__main__":
         "--rl-obs-mode",
         type=str,
         default="partial_state",
-        choices=["full_state", "partial_state"],
+        choices=["partial_state"],
         help="Observation mode expected by RL model",
+    )
+    parser.add_argument(
+        "--output-csv",
+        type=str,
+        default=None,
+        help="Optional path for simulation history export. Nothing is written unless this is set.",
     )
     args = parser.parse_args()
     run(
@@ -101,4 +116,5 @@ if __name__ == "__main__":
         policy=args.policy,
         rl_model_path=args.rl_model_path,
         rl_obs_mode=args.rl_obs_mode,
+        output_csv=args.output_csv,
     )

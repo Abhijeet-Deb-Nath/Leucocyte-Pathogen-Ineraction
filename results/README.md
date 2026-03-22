@@ -1,14 +1,13 @@
 # Results Directory
 
-This directory stores generated CSV outputs.
+This directory is intentionally kept free of versioned experiment artifacts.
 
-Subfolders:
-- `smoke/`: temporary smoke-run outputs
-- `medium_eval/`: intermediate evaluations
-- `final_eval/`: kept paper-facing summaries
-- `sweeps/`: parameter sweeps
-- `simulations/`: exported simulation histories
-- `archive/`: optional local archive for older artifacts
+Use it only as a local scratch destination when you explicitly choose to write generated files there.
 
-The cleaned repo keeps only a very small number of final-eval artifacts.
-Most transient results should be stored externally or deleted after inspection.
+Do not keep in git:
+- evaluation CSVs
+- smoke-run summaries
+- simulation history exports
+- remote-training outputs
+
+If you generate results locally, inspect them, move anything important to external storage, and delete the rest.

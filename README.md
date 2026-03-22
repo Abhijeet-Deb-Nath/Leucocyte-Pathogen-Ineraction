@@ -1,96 +1,67 @@
 # Pathway 1 Immune-Pathogen Simulator
 
-This repository is the paper-track codebase for a **partial-observation adversarial immune control** project.
+This repository is the cleaned paper-track codebase for a **partial-observation adversarial immune-control** project.
 
-The core question is:
+The central question is:
 
-How should a locally sensing macrophage control an acute bacterial infection when escalation is delayed and costly?
+How should a locally sensing macrophage control a stochastic bacterial infection when escalation is delayed, costly, and only partially observed?
 
-The project studies that question in a compartmentalized Pathway 1 simulator with:
-- adaptive bacteria
-- delayed neutrophil recruitment
-- host utility and tissue-damage trade-offs
-- multiple macrophage control methods under the same environment
+For the formal environment and interaction rules, see `detailed_game_rule.md`.
+For the current research stage and next algorithmic milestones, see `PROJECT_STATUS.md`.
 
-For the formal game and mechanistic rules, see [detailed_game_rule.md](/C:/Users/Ankon/Desktop/Projects/AI/detailed_game_rule.md).
-For the current research stage and next experimental gate, see [PROJECT_STATUS.md](/C:/Users/Ankon/Desktop/Projects/AI/PROJECT_STATUS.md).
+## Active Research Line
 
-## Research Focus
+This repo now keeps one active host-control direction:
+- `heuristic` only as an interpretable teacher and baseline
+- one **learned macrophage controller** as the mainline
+- partial observation as the only public benchmark path
 
-This repo is now intentionally focused on:
-- **partial observation** as the main benchmark
-- **heuristic vs lightweight MCTS vs RL**
-- **recurrent PPO** as the main learning direction
+The learned-controller stack currently includes:
+- recurrent inference support in `agents/rl_agent.py`
+- partial-observation wrapper and action abstraction in `simulator/rl_interface.py`
+- sequence-aware behavior-cloning bootstrap and optional PPO fine-tuning in `experiments/train_ppo.py`
 
-This repo is no longer organized around:
-- full-visibility results as the main story
-- broad experimental sprawl
-- keeping large local checkpoints and temporary smoke outputs in versioned state
+The active action abstraction is:
+- local movement
+- attack
+- abstract `request_help`
 
-## Methods
+`request_help` is resolved inside the environment wrapper into concrete signal intensity based on local pressure, so the learned policy does not spend capacity gaming low/medium/high signal variants directly.
 
-Current macrophage controllers:
-- `heuristic`: rule-based local controller in [heuristic.py](/C:/Users/Ankon/Desktop/Projects/AI/agents/heuristic.py)
-- `mcts`: lightweight local rollout planner in [mcts.py](/C:/Users/Ankon/Desktop/Projects/AI/agents/mcts.py)
-- `rl`: PPO / recurrent PPO inference in [rl_agent.py](/C:/Users/Ankon/Desktop/Projects/AI/agents/rl_agent.py)
+## What Was Removed
 
-Current RL stack:
-- feedforward PPO baseline
-- masked recurrent PPO integrated as the new mainline
-- shared observation/extractor path in [rl_interface.py](/C:/Users/Ankon/Desktop/Projects/AI/simulator/rl_interface.py)
+The repo no longer carries these as active paper paths:
+- runtime MCTS / online planner control
+- hidden planner fallback inside `Environment.step()`
+- planner-based evaluation scripts and planner-specific config
+- exploratory bacteria-mode and parameter-sweep scripts that depended on the removed default planner
+- versioned local evaluation CSV snapshots that were blurring the project goal
+
+These were removed because they were no longer promising relative to the hardware budget, GUI demo requirement, and current research direction.
+
+## Current Mainline Plan
+
+The repo is now aligned around this sequence:
+
+1. Train a recurrent partial-observation controller from expert demonstrations.
+2. Improve it with better supervision on the learner's own visited states.
+3. Add RL fine-tuning only after the imitation path becomes behaviorally competent.
+
+The next planned algorithmic upgrades are:
+- higher-level mode supervision such as `engage`, `request_help`, `follow_chem`, `patrol`
+- DAgger-style dataset aggregation on learner-visited states
+- optional RL fine-tuning after the imitation policy stops collapsing
 
 ## Repository Layout
 
-- `agents/`: host and bacteria policies
+- `agents/`: bacteria policy, heuristic teacher, learned-controller inference
 - `simulator/`: environment, entities, RL wrapper
-- `experiments/`: training, evaluation, sweeps, reproducibility checks
+- `experiments/`: training, evaluation, reproducibility checks, simulation runner
 - `visualization/`: GUI and plotting
-- `models/`: local output directory for checkpoints; large model artifacts are not kept in the cleaned repo
-- `results/`: generated CSVs and experiment outputs
-
-Results subfolders:
-- `results/smoke/`: temporary smoke runs
-- `results/medium_eval/`: intermediate evaluations
-- `results/final_eval/`: paper-facing kept evaluation snapshots
-- `results/sweeps/`: parameter sweeps
-- `results/simulations/`: run history exports
-- `results/archive/`: old artifacts if you choose to keep them locally
-
-## Artifact Policy
-
-This cleaned repo is intentionally light on generated artifacts.
-
-Keep in the repo:
-- source code
-- dependency files
-- documentation
-- only a very small number of paper-facing summary CSVs
-
-Do **not** keep in the repo long-term:
-- temporary smoke checkpoints
-- checkpoint folders
-- eval logs
-- transient local probe results
-- large remote-training artifacts
-
-Store large training outputs in Google Drive or another external artifact store.
-
-## Current Kept Evaluation Snapshot
-
-The current kept local baseline snapshot is:
-- [partial_mainline_best_current_5ep.csv](/C:/Users/Ankon/Desktop/Projects/AI/results/final_eval/partial_mainline_best_current_5ep.csv)
-- [partial_mainline_best_current_5ep_summary.csv](/C:/Users/Ankon/Desktop/Projects/AI/results/final_eval/partial_mainline_best_current_5ep_summary.csv)
-
-That snapshot is the last kept feedforward partial-observation reference point:
-- heuristic: `0.6` win rate
-- mcts: `0.4` win rate
-- rl: `0.4` win rate
-
-These are not final paper numbers. They are the local reference baseline before the recurrent remote-training phase.
+- `models/`: local checkpoint scratch space only; not versioned with artifacts
+- `results/`: intentionally documentation-only inside git; generated outputs should live outside version control
 
 ## Setup
-
-Create and activate a Python environment, then install:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -104,92 +75,52 @@ python -m pip install -e .
 
 ## Local Usage
 
-Run a single simulation with GUI:
+Run the heuristic baseline in the GUI:
 
 ```bash
 python -m experiments.run_simulation
 ```
 
-Run headless:
+Run a learned checkpoint in the GUI:
 
 ```bash
-python -m experiments.run_simulation --headless
+python -m experiments.run_simulation --policy rl --rl-model-path path/to/checkpoint
 ```
 
-Run policy evaluation:
+Run a headless heuristic-vs-learned evaluation:
 
 ```bash
-python -m experiments.evaluate_policies --episodes 20 --seed 123 --rl-model models/paper_track_partial_recurrent/ppo_macrophage_partial_state_recurrent_best --obs-mode partial_state --output-csv results/final_eval/policy_eval_partial_state_recurrent.csv
+python -m experiments.evaluate_policies --episodes 20 --seed 123 --rl-model path/to/checkpoint --output-csv path/to/results.csv
 ```
 
-Run recurrent PPO locally only for short smoke checks:
+Run BC-only bootstrap:
 
 ```bash
-python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 5000 --save-dir models/paper_track_partial_recurrent
+python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 0 --bc-pretrain-steps 4096 --bc-epochs 8 --bc-sequence-length 32 --save-dir models/recurrent_bc
 ```
 
-## Remote Training Direction
-
-The next serious training phase should run remotely, not on the local machine.
-
-Recommended remote mainline:
+Run BC bootstrap plus PPO fine-tuning:
 
 ```bash
-python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 150000 --save-dir /content/runs/paper_track_partial_recurrent
+python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 30000 --save-dir models/recurrent_mainline
 ```
 
-Why remote now:
-- masked recurrent PPO is structurally integrated
-- invalid-action fallback collapse was fixed locally
-- remaining work is learning quality, not wiring correctness
+## Artifact Policy
 
-## Google Colab Workflow
+This repo intentionally does **not** keep generated training and evaluation artifacts in version control.
 
-Minimal workflow:
+Do not keep in git:
+- checkpoints
+- smoke-run CSVs
+- evaluation CSVs
+- simulation history exports
+- remote experiment outputs
 
-1. Open Google Colab and enable a GPU runtime if available.
-2. Clone or upload the repo into `/content`.
-3. Install dependencies with `pip install -r requirements.txt`.
-4. Train in `/content`, not directly in Drive.
-5. Copy only the important output artifacts to Drive after each run.
-
-The first remote experiment should be a **moderate recurrent smoke run**, not a final large run.
-
-## Development Notes
-
-### Mainline Benchmark
-
-The intended paper-track comparison is:
-- heuristic
-- lightweight MCTS
-- feedforward PPO baseline
-- recurrent PPO mainline
-
-### Full-State Policy
-
-Full-state experiments are not part of the paper-track mainline.
-If legacy full-state code paths still exist, treat them as debugging leftovers or oracle-only support, not as the main research result.
-
-### Action API
-
-`Environment.get_macrophage_actions()` supports:
-- `("move", (dx, dy))`
-- `("attack", None)`
-- `("signal_low", None)`
-- `("signal_medium", None)`
-- `("signal_high", None)`
-
-### Reproducibility
-
-Use:
-
-```bash
-python -m experiments.seed_repro_check
-```
+Store those artifacts in Google Drive or another external location and only bring back specific files when you need local inspection.
 
 ## Practical Recommendation
 
 Use the repo this way:
-- local machine: correctness checks, traces, GUI inspection
-- remote runtime: recurrent PPO training and multi-seed evaluation
-- repo: code, docs, and a small number of kept paper-facing summaries
+- local machine: correctness checks, GUI inspection, short smoke checks
+- remote runtime: longer behavior-cloning and RL training
+- git repo: source code, documentation, and the current algorithmic path only

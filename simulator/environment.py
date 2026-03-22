@@ -278,9 +278,11 @@ class Environment:
 
         action = macrophage_action
         if action is None:
-            from agents.mcts import MCTSAgent
-
-            action = MCTSAgent().choose_action(self)
+            raise ValueError(
+                "Environment.step requires an explicit macrophage_action. "
+                "Use a controller such as HeuristicAgent or RLMacrophageAgent "
+                "to choose an action before stepping the simulator."
+            )
 
         self._execute_macrophage_action(action)
         self._execute_bacteria_phase()

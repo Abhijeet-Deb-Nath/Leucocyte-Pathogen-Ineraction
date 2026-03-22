@@ -87,16 +87,9 @@ That last point avoids directional bias that can isolate a quadrant at wall inte
 
 ## 5.1 Macrophage (host decision agent)
 
-Primary policy: lightweight rollout-based MCTS selector (agents/mcts.py).
+Current repo baseline policy: heuristic local controller (agents/heuristic.py).
 
-Mechanics:
-1. Enumerate legal actions.
-2. Clone environment for each action.
-3. Rollout using candidate first action plus random continuation.
-4. Evaluate resulting state with utility-weighted score.
-5. Pick best average action.
-
-Fallback policy: heuristic rule system (agents/heuristic.py) if rollout budget/time is constrained.
+Current research mainline: learned recurrent controller trained from partial observations, sequence-aware behavior cloning, and later fine-tuning. The learned controller uses an abstract `request_help` decision rather than directly selecting signal intensity.
 
 Heuristic priorities:
 1. Attack if bacteria adjacent.
@@ -104,6 +97,12 @@ Heuristic priorities:
 3. Move toward nearest sensed bacteria.
 4. If none seen, move toward chemokine peak.
 5. Else random legal move.
+
+Learned-controller design goals:
+1. Observe only local state and local chemical cues.
+2. Maintain memory across steps.
+3. Decide when to move, attack, or request help.
+4. Stay fast enough for live GUI use, unlike online tree search.
 
 ## 5.2 Bacteria (adaptive local policy)
 

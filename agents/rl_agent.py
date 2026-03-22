@@ -29,6 +29,8 @@ class RLMacrophageAgent:
         partial_radius=None,
         deterministic=True,
     ):
+        if observation_mode != "partial_state":
+            raise ValueError("Only partial_state learned-controller inference is supported")
         try:
             importlib.import_module("stable_baselines3")
         except ImportError as exc:

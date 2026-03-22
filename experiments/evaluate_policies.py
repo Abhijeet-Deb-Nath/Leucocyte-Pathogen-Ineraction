@@ -1,4 +1,4 @@
-"""Evaluate heuristic, MCTS, and RL macrophage policies on shared metrics."""
+"""Evaluate the heuristic baseline against the learned controller."""
 
 import argparse
 from collections import Counter
@@ -8,7 +8,6 @@ import pandas as pd
 
 import config
 from agents.heuristic import HeuristicAgent
-from agents.mcts import MCTSAgent
 from agents.rl_agent import RLMacrophageAgent
 from simulator.environment import Environment
 
@@ -17,13 +16,9 @@ def _build_policy(
     policy_name,
     rl_model_path=None,
     obs_mode="partial_state",
-    mcts_rollout_budget=None,
-    mcts_rollout_depth=None,
 ):
     if policy_name == "heuristic":
         return HeuristicAgent()
-    if policy_name == "mcts":
-        return MCTSAgent(rollout_budget=mcts_rollout_budget, rollout_depth=mcts_rollout_depth)
     if policy_name == "rl":
         if not rl_model_path:
             raise ValueError("rl_model_path is required when policy_name='rl'")
@@ -37,16 +32,12 @@ def run_policy_eval(
     base_seed,
     rl_model_path=None,
     obs_mode="partial_state",
-    mcts_rollout_budget=None,
-    mcts_rollout_depth=None,
     max_steps=None,
 ):
     policy = _build_policy(
         policy_name,
         rl_model_path=rl_model_path,
         obs_mode=obs_mode,
-        mcts_rollout_budget=mcts_rollout_budget,
-        mcts_rollout_depth=mcts_rollout_depth,
     )
     records = []
 
@@ -136,8 +127,6 @@ def evaluate_all(
     rl_model_path,
     obs_mode,
     output_csv,
-    mcts_rollout_budget=None,
-    mcts_rollout_depth=None,
     max_steps=None,
 ):
     frames = [
@@ -148,21 +137,11 @@ def evaluate_all(
             max_steps=max_steps,
         ),
         run_policy_eval(
-            "mcts",
-            episodes=episodes,
-            base_seed=base_seed,
-            mcts_rollout_budget=mcts_rollout_budget,
-            mcts_rollout_depth=mcts_rollout_depth,
-            max_steps=max_steps,
-        ),
-        run_policy_eval(
             "rl",
             episodes=episodes,
             base_seed=base_seed,
             rl_model_path=rl_model_path,
             obs_mode=obs_mode,
-            mcts_rollout_budget=mcts_rollout_budget,
-            mcts_rollout_depth=mcts_rollout_depth,
             max_steps=max_steps,
         ),
     ]
@@ -201,7 +180,7 @@ def evaluate_all(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate heuristic vs MCTS vs RL policies")
+    parser = argparse.ArgumentParser(description="Evaluate heuristic vs learned-controller policies")
     parser.add_argument("--episodes", type=int, default=20, help="Episodes per policy")
     parser.add_argument("--seed", type=int, default=123, help="Base seed for reproducible evaluation")
     parser.add_argument(
@@ -214,7 +193,7 @@ if __name__ == "__main__":
         "--obs-mode",
         type=str,
         default="partial_state",
-        choices=["full_state", "partial_state"],
+        choices=["partial_state"],
         help="Observation mode expected by the RL model",
     )
     parser.add_argument(
@@ -222,18 +201,6 @@ if __name__ == "__main__":
         type=str,
         default="policy_eval_results.csv",
         help="Where to save per-episode policy comparison results",
-    )
-    parser.add_argument(
-        "--mcts-rollout-budget",
-        type=int,
-        default=None,
-        help="Optional MCTS rollout budget override for evaluation speed control",
-    )
-    parser.add_argument(
-        "--mcts-rollout-depth",
-        type=int,
-        default=None,
-        help="Optional MCTS rollout depth override for evaluation speed control",
     )
     parser.add_argument(
         "--max-steps",
@@ -249,7 +216,5 @@ if __name__ == "__main__":
         rl_model_path=args.rl_model,
         obs_mode=args.obs_mode,
         output_csv=args.output_csv,
-        mcts_rollout_budget=args.mcts_rollout_budget,
-        mcts_rollout_depth=args.mcts_rollout_depth,
         max_steps=args.max_steps,
     )

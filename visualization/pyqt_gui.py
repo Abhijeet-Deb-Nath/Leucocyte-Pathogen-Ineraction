@@ -415,10 +415,13 @@ class SimulationGUI(QMainWindow):
     def step_once(self):
         if not self.env.done:
             if self.policy_agent is None:
-                self.env.step()
-            else:
-                action = self.policy_agent.choose_action(self.env)
-                self.env.step(macrophage_action=action)
+                raise RuntimeError(
+                    "SimulationGUI requires an explicit policy agent. "
+                    "Launch the GUI through experiments.run_simulation with "
+                    "--policy heuristic or --policy rl."
+                )
+            action = self.policy_agent.choose_action(self.env)
+            self.env.step(macrophage_action=action)
             self.canvas.update_display(self.env)
             self.refresh_status()
 
@@ -458,6 +461,11 @@ class SimulationGUI(QMainWindow):
 
 
 def launch_gui(env, policy_agent=None):
+    if policy_agent is None:
+        raise ValueError(
+            "launch_gui requires an explicit policy agent. "
+            "Use HeuristicAgent or RLMacrophageAgent when launching the GUI."
+        )
     app = QApplication(sys.argv)
     gui = SimulationGUI(env, policy_agent=policy_agent)
     gui.show()

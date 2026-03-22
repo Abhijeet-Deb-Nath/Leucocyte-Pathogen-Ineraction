@@ -117,17 +117,9 @@ HOST_UTILITY_ALPHA = 1.0
 HOST_UTILITY_BETA = 0.35
 
 # ---------------------------
-# Bacteria strategy controls
+# Bacteria dynamics
 # ---------------------------
-BACTERIA_ADAPTIVE_ENABLED = True
 BACTERIA_STOCHASTICITY = 0.12
-BACTERIA_MODE = "adaptive"
-
-# ---------------------------
-# Planning/search
-# ---------------------------
-ROLLOUT_BUDGET = 40
-MCTS_SIM_DEPTH = 12
 
 # ---------------------------
 # RL interface settings

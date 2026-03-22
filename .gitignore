@@ -12,14 +12,10 @@ models/*
 !models/README.md
 
 # Generated result artifacts
-results/archive/*
-results/medium_eval/*
-results/simulations/*
-results/smoke/*
-results/sweeps/*
+results/**
 !results/README.md
-!results/archive/.gitkeep
-!results/medium_eval/.gitkeep
-!results/simulations/.gitkeep
-!results/smoke/.gitkeep
-!results/sweeps/.gitkeep
+
+# Common local exports
+simulation_history_pathway1.csv
+pathway1_*.csv
+pathway1_*.png

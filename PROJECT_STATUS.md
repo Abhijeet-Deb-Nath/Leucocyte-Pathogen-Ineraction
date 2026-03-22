@@ -1,103 +1,72 @@
 # Project Status
 
-## Current Stage
+## Current Standing
 
-This project is now in a **clean paper-track transition** stage.
+This project is no longer pretending to have multiple equally alive algorithmic paths.
 
-Main direction:
-- partial-observation adversarial immune control
-- recurrent PPO as the main learned controller
+The repo is now organized around:
+- one fixed partial-observation environment
+- one heuristic teacher / baseline
+- one learned-controller mainline
 
-Secondary baselines:
-- heuristic local controller
-- lightweight MCTS local planner
-- feedforward PPO baseline
+The learned controller is **not paper-ready yet**. The environment and teacher are solid, but the learned policy still needs a stronger training formulation.
 
-## What Is Already Done
+## What Is In The Code Right Now
 
-- partial observation is the mainline benchmark
-- shortcut-heavy full-state results have been deprioritized
-- local heuristic and MCTS baselines exist
-- feedforward PPO baseline exists
-- recurrent PPO has been integrated cleanly
-- recurrent inference now carries hidden state across steps and resets between episodes
-- masked recurrent PPO support is integrated
-- invalid-action fallback collapse in recurrent PPO was fixed locally
+- partial-observation recurrent policy inference
+- abstract `request_help` action for the learned controller
+- sequence-aware recurrent behavior-cloning bootstrap
+- optional PPO fine-tuning after the BC stage
+- heuristic-vs-learned evaluation script
+- explicit-policy simulation runner with GUI support
 
-## Important Local Finding
+## What Was Removed
 
-Before masked recurrent PPO, the tiny recurrent path was structurally bad:
-- invalid recurrent actions were being sanitized frequently
-- this biased the policy into degenerate behavior
+Removed from the active codebase:
+- runtime MCTS and planner-specific hooks
+- hidden planner fallback inside the simulator
+- planner-vs-RL comparison scripts
+- exploratory bacteria-mode and parameter-sweep scripts tied to the removed default control path
+- versioned local CSV artifacts that were muddying the project goal
 
-After masked recurrent PPO:
-- fallback rate dropped from `71/80` to `0/120` in direct local tracing
+These were removed because they were no longer the most promising path for:
+- partial observability
+- stochastic dynamics
+- local hardware constraints
+- live GUI demonstration
 
-That means the recurrent path is now structurally sound enough for remote training.
+## Honest Assessment
 
-## What Is Not Finished Yet
+Current evidence says:
+- the heuristic remains the only clearly competent controller
+- flat PPO was not a good fit
+- planner-based control was too expensive and too weak for the demo setting
+- sequence-aware BC alone is still not enough
 
-- no strong recurrent checkpoint exists yet
-- the moderate local recurrent smoke run still showed weak engagement
-- policy quality is still below paper-ready standard
+So the real blocker is **algorithm design**, not just training time or hardware.
 
-So the remaining bottleneck is:
-- **training quality and scale**
+## Active Research Direction
 
-not:
-- repo structure
-- recurrent inference wiring
-- hidden-state reset correctness
+The repo is now aligned around a single plan:
 
-## Current Kept Local Reference
+1. Use the heuristic only to bootstrap the learned controller.
+2. Improve supervision on the learner's own visited states.
+3. Add RL fine-tuning only after imitation becomes behaviorally stable.
 
-Current kept local baseline snapshot:
-- [partial_mainline_best_current_5ep_summary.csv](/C:/Users/Ankon/Desktop/Projects/AI/results/final_eval/partial_mainline_best_current_5ep_summary.csv)
+The next algorithmic steps should be:
+- add high-level mode supervision such as `engage`, `request_help`, `follow_chem`, `patrol`
+- add DAgger-style dataset aggregation
+- revisit RL fine-tuning only after the policy can reliably imitate useful escalation behavior
 
-Reference local baseline:
-- heuristic: `0.6`
-- mcts: `0.4`
-- feedforward rl: `0.4`
+## What The Repo Is For Now
 
-These are the numbers the recurrent remote smoke run should try to beat.
+This codebase should now be used for:
+- environment development
+- heuristic teacher inspection
+- learned-controller research
+- remote training experiments on the single active mainline
 
-## Immediate Next Step
-
-Run a **moderate remote recurrent smoke experiment**.
-
-Goal of that run:
-- confirm real engagement behavior under more timesteps
-- check whether recurrent PPO beats the feedforward baseline
-
-## Acceptance Criteria For The First Remote Recurrent Run
-
-The first remote recurrent smoke run is promising if it shows:
-- attack actions are clearly nonzero
-- signaling is contextual, not blind
-- no stay-collapse or fallback-collapse
-- GUI behavior looks purposeful on representative seeds
-- 5-seed summary is at least competitive with the current feedforward baseline
-
-## If The Remote Recurrent Smoke Run Fails
-
-Do not scale blindly.
-
-Come back to:
-- richer partial-observation memory design
-- recurrent behavior cloning quality
-- per-seed trace tooling
-- reward/engagement tuning
-
-## Repo Cleanup Policy
-
-This repo now keeps:
-- source code
-- dependency files
-- paper-facing documentation
-- a very small number of kept summary artifacts
-
-This repo intentionally does not keep:
-- temporary smoke checkpoints
-- local probe artifacts
-- stale full-state artifacts
-- old exploratory outputs that are no longer part of the paper path
+This codebase should not be treated as:
+- a planner benchmark zoo
+- a storage location for generated artifacts
+- a record of every abandoned algorithmic branch

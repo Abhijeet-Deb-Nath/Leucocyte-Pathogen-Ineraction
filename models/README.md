@@ -1,14 +1,10 @@
 # Models Directory
 
-This directory is intentionally kept light in the cleaned paper-track repo.
+This directory is scratch space for local checkpoint inspection only.
 
-Use it as the local output location for:
-- feedforward PPO checkpoints
-- recurrent PPO checkpoints
+The repo does not version:
+- BC checkpoints
+- PPO checkpoints
+- remote-training outputs
 
-Do not keep large or temporary training artifacts here long-term.
-
-Recommended policy:
-- train remotely
-- keep important checkpoints in Google Drive
-- copy back only the specific checkpoints you want to inspect locally
+Train remotely when possible, keep artifacts outside git, and copy back only the specific checkpoints you want to inspect in the GUI or local evaluation scripts.
