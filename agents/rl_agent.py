@@ -7,6 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
+from agents.hierarchical_agent import HierarchicalMacrophageAgent
+from agents.hierarchical_policy import load_hierarchical_checkpoint
 from simulator.rl_interface import (
     LEGACY_MACROPHAGE_ACTIONS,
     MACROPHAGE_ACTIONS,
@@ -29,21 +31,34 @@ class RLMacrophageAgent:
         partial_radius=None,
         deterministic=True,
     ):
+        model_path = Path(model_path)
+        resolved_model_path = model_path
+        if not resolved_model_path.exists():
+            for suffix in (".pt", ".zip"):
+                candidate = resolved_model_path.with_suffix(suffix)
+                if candidate.exists():
+                    resolved_model_path = candidate
+                    break
+        if not resolved_model_path.exists():
+            raise FileNotFoundError(f"RL model not found: {model_path}")
+
+        self._delegate = None
+        if resolved_model_path.suffix == ".pt":
+            payload = load_hierarchical_checkpoint(resolved_model_path, map_location="cpu")
+            if payload.get("format") == "hierarchical_macrophage_v1":
+                self._delegate = HierarchicalMacrophageAgent(
+                    model_path=resolved_model_path,
+                    observation_mode=observation_mode,
+                    deterministic=deterministic,
+                )
+                return
+
         if observation_mode != "partial_state":
             raise ValueError("Only partial_state learned-controller inference is supported")
         try:
             importlib.import_module("stable_baselines3")
         except ImportError as exc:
             raise ImportError("stable-baselines3 is required for RL policy inference") from exc
-
-        model_path = Path(model_path)
-        resolved_model_path = model_path
-        if not resolved_model_path.exists() and resolved_model_path.suffix != ".zip":
-            candidate = resolved_model_path.with_suffix(".zip")
-            if candidate.exists():
-                resolved_model_path = candidate
-        if not resolved_model_path.exists():
-            raise FileNotFoundError(f"RL model not found: {model_path}")
 
         self.model, self._is_recurrent = self._load_model(resolved_model_path)
         self._action_catalog = self._detect_action_catalog()
@@ -96,12 +111,17 @@ class RLMacrophageAgent:
         raise ValueError(f"Unsupported RL action-space size: {action_n}")
 
     def reset(self, env):
+        if self._delegate is not None:
+            self._delegate.reset(env)
+            return
         self.observer.reset(env)
         self._initialized = True
         self._recurrent_state = None
         self._episode_start = np.array([True], dtype=np.bool_)
 
     def choose_action(self, env):
+        if self._delegate is not None:
+            return self._delegate.choose_action(env)
         if not self._initialized:
             self.reset(env)
 

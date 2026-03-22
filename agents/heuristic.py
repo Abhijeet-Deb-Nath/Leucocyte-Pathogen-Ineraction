@@ -20,6 +20,10 @@ class HeuristicAgent:
         self.visited_positions = {env.macrophage.position}
 
     def choose_action(self, env):
+        _, action = self.choose_labeled_action(env)
+        return action
+
+    def choose_labeled_action(self, env):
         if not self.recent_positions:
             self.reset(env)
         if self.use_memory:
@@ -35,7 +39,7 @@ class HeuristicAgent:
         ]
 
         if adjacent_bacteria and ("attack", None) in action_set:
-            return ("attack", None)
+            return "engage", ("attack", None)
 
         if nearby_bacteria:
             target = min(
@@ -63,7 +67,7 @@ class HeuristicAgent:
             ):
                 signal_action = self._select_signal_action(action_set, level="high")
                 if signal_action is not None:
-                    return signal_action
+                    return "request_help", signal_action
             elif (
                 support_missing
                 and pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM
@@ -71,7 +75,7 @@ class HeuristicAgent:
             ):
                 signal_action = self._select_signal_action(action_set, level="medium")
                 if signal_action is not None:
-                    return signal_action
+                    return "request_help", signal_action
             elif (
                 support_missing
                 and pressure >= config.HEURISTIC_SIGNAL_PRESSURE_LOW
@@ -80,18 +84,18 @@ class HeuristicAgent:
             ):
                 signal_action = self._select_signal_action(action_set, level="low")
                 if signal_action is not None:
-                    return signal_action
-            return self._move_toward_target(env, target)
+                    return "request_help", signal_action
+            return "engage", self._move_toward_target(env, target)
 
         # Follow only locally sensed chemokine rather than any global peak.
         chem_target = self._local_chemokine_target(env)
         if chem_target is not None:
-            return self._move_toward_target(env, chem_target)
+            return "follow_chem", self._move_toward_target(env, chem_target)
 
         move_actions = [a for a in actions if a[0] == "move" and a[1] != (0, 0)]
         if not move_actions:
-            return ("move", (0, 0))
-        return self._patrol_move(env, move_actions)
+            return "patrol", ("move", (0, 0))
+        return "patrol", self._patrol_move(env, move_actions)
 
     def _local_chemokine_target(self, env):
         mx, my = env.macrophage.position
