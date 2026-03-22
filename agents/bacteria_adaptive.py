@@ -96,9 +96,6 @@ class AdaptiveBacteriaAgent:
             if abs(b.position[0] - px) + abs(b.position[1] - py) <= 2
         )
 
-
-adaptive_bacteria_agent = AdaptiveBacteriaAgent()
-
-
 def choose_bacteria_move(bacterium, env):
-    return adaptive_bacteria_agent.choose_action(bacterium, env)
+    # Instantiate from current config so robustness overrides take effect.
+    return AdaptiveBacteriaAgent().choose_action(bacterium, env)

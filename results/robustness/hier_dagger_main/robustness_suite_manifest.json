@@ -1,0 +1,45 @@
+{
+  "episodes": 100,
+  "base_seed": 123,
+  "obs_mode": "partial_state",
+  "rl_model_path": "/content/Immune-Pathogen-Interaction/models/frozen/hier_dagger_main.pt",
+  "suites": {
+    "baseline_reference": {
+      "description": "Frozen benchmark with no config overrides.",
+      "overrides": {}
+    },
+    "high_bacteria_stochasticity": {
+      "description": "Increased bacteria movement stochasticity under the same host policy budget.",
+      "overrides": {
+        "BACTERIA_STOCHASTICITY": 0.24
+      }
+    },
+    "hotspot_overload": {
+      "description": "Higher initial bacterial burden in the primary hotspot compartment.",
+      "overrides": {
+        "INITIAL_BACTERIA_COUNT": 5
+      }
+    },
+    "recruitment_delay_stress": {
+      "description": "Slower and noisier neutrophil arrival after signaling.",
+      "overrides": {
+        "NEUTROPHIL_ARRIVAL_DELAY": 11,
+        "NEUTROPHIL_ARRIVAL_DELAY_JITTER": 3
+      }
+    },
+    "fragile_tissue": {
+      "description": "Host becomes more damage-sensitive under inflammation and immune usage.",
+      "overrides": {
+        "TISSUE_DAMAGE_FROM_NEUTROPHILS": 0.6,
+        "TISSUE_DAMAGE_FROM_BACTERIA": 0.14,
+        "DAMAGE_FROM_PROLONGED_INFLAMMATION": 0.08
+      }
+    },
+    "narrow_bottleneck": {
+      "description": "Doorway bottlenecks are tightened to stress movement and coordination.",
+      "overrides": {
+        "PASSAGE_BOTTLENECK_WIDTH": 1
+      }
+    }
+  }
+}

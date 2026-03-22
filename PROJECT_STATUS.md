@@ -20,7 +20,8 @@ Current frozen checkpoint:
 Current result snapshot:
 - the frozen DAgger checkpoint is competitive with the heuristic and was slightly better on the main `100`-seed held-out evaluation
 - reproducibility across training seeds is mixed but still supports a competitive-method claim
-- see `RESULTS_SUMMARY.md` and `results/final_eval/REPRODUCIBILITY_SUMMARY.md`
+- robustness evaluation is also promising under multiple stress settings
+- see `RESULTS_SUMMARY.md`, `ROBUSTNESS_RESULTS.md`, and `results/final_eval/REPRODUCIBILITY_SUMMARY.md`
 
 ## What Is In The Code Right Now
 
@@ -70,10 +71,10 @@ The repo is now aligned around a single plan:
 4. Revisit RL fine-tuning only if it can improve the frozen DAgger checkpoint without destabilizing it.
 
 The next experiment steps should be:
-- reproducibility across multiple training seeds
-- robustness suites under adversarial stress settings
-- GUI validation using the frozen DAgger checkpoint
-- paper tables for `heuristic`, `BC-only`, `BC+DAgger`, and `BC+DAgger+RL`
+- rerun and validate the `high_bacteria_stochasticity` robustness suite after the bacteria-policy bug fix
+- finalize paper tables for `heuristic`, `BC-only`, `BC+DAgger`, and `BC+DAgger+RL`
+- organize robustness tables around the now-validated stress suites
+- keep GUI validation centered on the frozen DAgger checkpoint
 
 These are now organization-and-evidence steps, not “find a new mainline” steps.
 

@@ -16,6 +16,8 @@ results/**
 !results/README.md
 !results/final_eval/
 !results/final_eval/**
+!results/robustness/
+!results/robustness/**
 
 # Common local exports
 simulation_history_pathway1.csv

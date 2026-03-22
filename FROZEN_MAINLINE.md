@@ -40,4 +40,8 @@ Use this frozen model for:
 - robustness experiments
 - paper tables and discussion
 
+Current robustness artifacts:
+
+- `results/robustness/hier_dagger_main/`
+
 Do not replace it casually with new training runs unless those runs are clearly stronger on held-out evaluation.

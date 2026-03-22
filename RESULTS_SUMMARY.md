@@ -157,3 +157,17 @@ So the next research phase is:
 - run robustness experiments
 - report reproducibility
 - only then consider carefully constrained training extensions
+
+## Robustness Follow-Up
+
+Robustness evaluation has now been added as the next evidence layer.
+
+Current status:
+
+- multiple stress suites already support the frozen DAgger controller
+- `high_bacteria_stochasticity` must be rerun after the bacteria-policy singleton bug fix
+
+See:
+
+- `ROBUSTNESS_RESULTS.md`
+- `results/robustness/hier_dagger_main/`

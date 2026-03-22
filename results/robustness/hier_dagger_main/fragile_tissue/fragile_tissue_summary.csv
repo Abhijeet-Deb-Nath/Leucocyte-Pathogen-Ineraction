@@ -1,0 +1,3 @@
+policy,win_rate,tissue_damage,host_utility,episode_length,recruited_neutrophils,attack_actions,signal_actions,blind_signal_actions,stay_actions,coverage_ratio,corner_dwell_ratio,visible_bacteria_ratio,camp_signal_signature
+heuristic,0.5,119.54200000000012,-115.92430000000012,155.26,1.95,15.58,13.02,0.0,4.84,0.1484938271604938,0.0032378137861096877,0.6351803385698974,0.01
+rl,0.51,113.01160000000007,-109.53105000000006,131.64,4.28,10.3,5.64,0.0,4.98,0.11096296296296297,0.0038261688876606594,0.6433788653167977,0.02
