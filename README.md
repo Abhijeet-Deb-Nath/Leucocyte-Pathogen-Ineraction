@@ -109,6 +109,12 @@ Run a headless heuristic-vs-learned evaluation:
 python -m experiments.evaluate_policies --episodes 20 --seed 123 --rl-model path/to/checkpoint --output-csv path/to/results.csv
 ```
 
+Run the paper-track robustness suite:
+
+```bash
+python -m experiments.run_robustness_suite --rl-model models/frozen/hier_dagger_main.pt --output-dir results/robustness
+```
+
 Run hierarchical BC-only bootstrap:
 
 ```bash

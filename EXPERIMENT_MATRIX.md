@@ -72,6 +72,12 @@ Recommended robustness suites:
 
 Use the same metrics as the main table.
 
+Repository entrypoint for this phase:
+
+```bash
+python -m experiments.run_robustness_suite --rl-model models/frozen/hier_dagger_main.pt --output-dir results/robustness
+```
+
 ## GUI Demonstration
 
 The GUI demonstration should use:
