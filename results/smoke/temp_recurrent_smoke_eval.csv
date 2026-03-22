@@ -1,4 +1,0 @@
-policy,episode,seed,winner,win,tissue_damage,host_utility,episode_length,recruited_neutrophils,attack_actions,signal_actions,blind_signal_actions,stay_actions,coverage_ratio,corner_dwell_ratio,visible_bacteria_ratio,camp_signal_signature,truncated
-heuristic,0,123,,0,23.60000000000003,-25.75000000000003,80,0,5,9,0,0,0.10617283950617284,0.0125,1.0,0,1
-mcts,0,123,,0,22.20000000000001,-21.20000000000001,80,0,2,0,0,2,0.08888888888888889,0.075,0.5625,0,1
-rl,0,123,,0,24.000000000000036,-24.000000000000036,80,0,3,0,0,0,0.027160493827160494,0.0,1.0,0,1

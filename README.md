@@ -1,254 +1,195 @@
 # Pathway 1 Immune-Pathogen Simulator
 
-This repository now implements the **Pathway 1** direction: an acute alveolar hotspot simulation with compartmentalized infection, delayed neutrophil recruitment, and host utility trade-offs.
+This repository is the paper-track codebase for a **partial-observation adversarial immune control** project.
 
-This README is an engineering guide for running and extending the codebase.
-For formal mechanics and detailed game design, see `detailed_game_rule.md`.
+The core question is:
 
-## What This Repository Is For
+How should a locally sensing macrophage control an acute bacterial infection when escalation is delayed and costly?
 
-Use this project to:
-- run Pathway 1 episodes and inspect outcomes (`winner`, `tissue_damage`, `host_utility`)
-- compare behavior regimes through repeatable experiment scripts
-- prototype new immune or bacterial policies without rewriting the full environment
+The project studies that question in a compartmentalized Pathway 1 simulator with:
+- adaptive bacteria
+- delayed neutrophil recruitment
+- host utility and tissue-damage trade-offs
+- multiple macrophage control methods under the same environment
 
-Use this project less for:
-- broad multi-pathway experimentation (the codebase is intentionally focused on Pathway 1)
-- deriving the full biological rationale from README alone (that is in `detailed_game_rule.md`)
+For the formal game and mechanistic rules, see [detailed_game_rule.md](/C:/Users/Ankon/Desktop/Projects/AI/detailed_game_rule.md).
+For the current research stage and next experimental gate, see [PROJECT_STATUS.md](/C:/Users/Ankon/Desktop/Projects/AI/PROJECT_STATUS.md).
 
-## Repository Map
+## Research Focus
 
-- `config.py`: central knobs for world geometry, agent behavior, recruitment, damage, and planning budget.
-- `simulator/entities.py`: entity dataclasses (`Macrophage`, `Bacteria`, `Neutrophil`).
-- `simulator/environment.py`: core simulation loop, compartment map, fields, state transitions, recruitment, scoring.
-- `agents/heuristic.py`: default host policy with contain-vs-recruit behavior.
-- `agents/mcts.py`: rollout planner for host action selection.
-- `agents/bacteria_adaptive.py`: local-context bacterial movement policy.
-- `experiments/run_simulation.py`: single-run entrypoint with output artifacts.
-- `experiments/compare_bacteria_modes.py`: compares adaptive bacteria stochasticity regimes.
-- `experiments/param_sweep.py`: sweeps key Pathway 1 parameters.
-- `visualization/pyqt_gui.py`: interactive PyQt viewer.
-- `visualization/plots.py`: performance and heatmap plotting utilities.
-- `visualization/animation.py`: lightweight matplotlib grid visualizer.
+This repo is now intentionally focused on:
+- **partial observation** as the main benchmark
+- **heuristic vs lightweight MCTS vs RL**
+- **recurrent PPO** as the main learning direction
 
-## Source and Artifact Layout
+This repo is no longer organized around:
+- full-visibility results as the main story
+- broad experimental sprawl
+- keeping large local checkpoints and temporary smoke outputs in versioned state
 
-- Source code lives in `agents/`, `simulator/`, `visualization/`, and `experiments/`.
-- Trained models live in `models/`.
-- Generated CSVs and other run results go in `results/`.
-- Use the `results/` subfolders to keep artifacts organized:
-  - `results/smoke/`
-  - `results/medium_eval/`
-  - `results/final_eval/`
-  - `results/sweeps/`
-  - `results/simulations/`
-  - `results/archive/`
-- Module execution commands stay the same (`python -m ...` from repo root).
+## Methods
 
-## Environment Setup
+Current macrophage controllers:
+- `heuristic`: rule-based local controller in [heuristic.py](/C:/Users/Ankon/Desktop/Projects/AI/agents/heuristic.py)
+- `mcts`: lightweight local rollout planner in [mcts.py](/C:/Users/Ankon/Desktop/Projects/AI/agents/mcts.py)
+- `rl`: PPO / recurrent PPO inference in [rl_agent.py](/C:/Users/Ankon/Desktop/Projects/AI/agents/rl_agent.py)
 
-1. Create and activate a Python environment.
-2. Install dependencies from repo root:
+Current RL stack:
+- feedforward PPO baseline
+- masked recurrent PPO integrated as the new mainline
+- shared observation/extractor path in [rl_interface.py](/C:/Users/Ankon/Desktop/Projects/AI/simulator/rl_interface.py)
+
+## Repository Layout
+
+- `agents/`: host and bacteria policies
+- `simulator/`: environment, entities, RL wrapper
+- `experiments/`: training, evaluation, sweeps, reproducibility checks
+- `visualization/`: GUI and plotting
+- `models/`: local output directory for checkpoints; large model artifacts are not kept in the cleaned repo
+- `results/`: generated CSVs and experiment outputs
+
+Results subfolders:
+- `results/smoke/`: temporary smoke runs
+- `results/medium_eval/`: intermediate evaluations
+- `results/final_eval/`: paper-facing kept evaluation snapshots
+- `results/sweeps/`: parameter sweeps
+- `results/simulations/`: run history exports
+- `results/archive/`: old artifacts if you choose to keep them locally
+
+## Artifact Policy
+
+This cleaned repo is intentionally light on generated artifacts.
+
+Keep in the repo:
+- source code
+- dependency files
+- documentation
+- only a very small number of paper-facing summary CSVs
+
+Do **not** keep in the repo long-term:
+- temporary smoke checkpoints
+- checkpoint folders
+- eval logs
+- transient local probe results
+- large remote-training artifacts
+
+Store large training outputs in Google Drive or another external artifact store.
+
+## Current Kept Evaluation Snapshot
+
+The current kept local baseline snapshot is:
+- [partial_mainline_best_current_5ep.csv](/C:/Users/Ankon/Desktop/Projects/AI/results/final_eval/partial_mainline_best_current_5ep.csv)
+- [partial_mainline_best_current_5ep_summary.csv](/C:/Users/Ankon/Desktop/Projects/AI/results/final_eval/partial_mainline_best_current_5ep_summary.csv)
+
+That snapshot is the last kept feedforward partial-observation reference point:
+- heuristic: `0.6` win rate
+- mcts: `0.4` win rate
+- rl: `0.4` win rate
+
+These are not final paper numbers. They are the local reference baseline before the recurrent remote-training phase.
+
+## Setup
+
+Create and activate a Python environment, then install:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-Optional editable install (clean package-style local use):
+Optional editable install:
 
 ```bash
 python -m pip install -e .
 ```
 
-Note:
-- All experiment entrypoints below are shown as module commands (`python -m ...`) to avoid any `sys.path` hacks.
+## Local Usage
 
-## Quick Start
-
-Run one episode with GUI (default):
+Run a single simulation with GUI:
 
 ```bash
 python -m experiments.run_simulation
 ```
 
-Run headless only when needed for automation:
+Run headless:
 
 ```bash
 python -m experiments.run_simulation --headless
 ```
 
-Organized output location:
-- `results/simulations/simulation_history_pathway1.csv`
-
-Run interactive GUI:
-
-```python
-from simulator.environment import Environment
-from visualization.pyqt_gui import launch_gui
-
-env = Environment()
-launch_gui(env)
-```
-
-## Experiment Workflows
-
-Compare bacterial policy noise regimes:
-
-```bash
-python -m experiments.compare_bacteria_modes
-```
-
-Artifacts should be kept under `results/`.
-
-Sweep delayed recruitment and neutrophil collateral damage:
-
-```bash
-python -m experiments.param_sweep
-```
-
-Artifact location:
-- `results/sweeps/pathway1_param_sweep_results.csv`
-
-## PPO and Policy Commands
-
-Install:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-Mainline training is partial-observation PPO:
-
-```bash
-python -m experiments.train_ppo --obs-mode partial_state --timesteps 150000 --save-dir models/paper_track_partial
-```
-
-Research-quality partial-observation training can also use recurrent PPO:
-
-```bash
-python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 150000 --save-dir models/paper_track_partial_recurrent
-```
-
-Notes:
-- recurrent PPO uses `sb3-contrib`
-- recurrent PPO now supports the same observation/extractor stack and explicit action masking
-
-Evaluate policies (heuristic vs mcts vs rl):
-
-```bash
-python -m experiments.evaluate_policies --episodes 20 --seed 123 --rl-model models/paper_track_partial/ppo_macrophage_partial_state_best --obs-mode partial_state --output-csv results/final_eval/policy_eval_partial_state.csv
-```
-
-For recurrent checkpoints, point `--rl-model` at the recurrent artifact name:
+Run policy evaluation:
 
 ```bash
 python -m experiments.evaluate_policies --episodes 20 --seed 123 --rl-model models/paper_track_partial_recurrent/ppo_macrophage_partial_state_recurrent_best --obs-mode partial_state --output-csv results/final_eval/policy_eval_partial_state_recurrent.csv
 ```
 
-Run local RL inference (single headless episode):
+Run recurrent PPO locally only for short smoke checks:
 
 ```bash
-python -m experiments.run_simulation --headless --verbose --policy rl --rl-model-path models/paper_track_partial/ppo_macrophage_partial_state_best --rl-obs-mode partial_state
+python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 5000 --save-dir models/paper_track_partial_recurrent
 ```
 
-Run local RL inference with GUI:
+## Remote Training Direction
+
+The next serious training phase should run remotely, not on the local machine.
+
+Recommended remote mainline:
 
 ```bash
-python -m experiments.run_simulation --policy rl --rl-model-path models/paper_track_partial/ppo_macrophage_partial_state_best --rl-obs-mode partial_state
+python -m experiments.train_ppo --obs-mode partial_state --recurrent --timesteps 150000 --save-dir /content/runs/paper_track_partial_recurrent
 ```
 
-The same command works for recurrent checkpoints; `RLMacrophageAgent` now carries recurrent hidden state across steps and resets it between episodes.
+Why remote now:
+- masked recurrent PPO is structurally integrated
+- invalid-action fallback collapse was fixed locally
+- remaining work is learning quality, not wiring correctness
 
-The project treats partial observation as the primary benchmark. Full-state models, if kept for debugging, should be considered supporting analysis only.
+## Google Colab Workflow
 
-Current kept paper-track artifacts in this repo:
-- `models/partial_mainline_bc_attack_smoke/ppo_macrophage_partial_state_final.zip`
-- `results/final_eval/partial_mainline_best_current_5ep.csv`
-- `results/final_eval/partial_mainline_best_current_5ep_summary.csv`
+Minimal workflow:
 
-## Google Colab Bootstrap (Minimal)
+1. Open Google Colab and enable a GPU runtime if available.
+2. Clone or upload the repo into `/content`.
+3. Install dependencies with `pip install -r requirements.txt`.
+4. Train in `/content`, not directly in Drive.
+5. Copy only the important output artifacts to Drive after each run.
 
-Clone and install:
-
-```bash
-!git clone <YOUR_REPO_URL>
-%cd AI
-!python -m pip install -r requirements.txt
-```
-
-Optional: mount Drive and set model output path:
-
-```python
-from google.colab import drive
-drive.mount('/content/drive')
-MODEL_DIR = '/content/drive/MyDrive/pathway1_models'
-```
-
-Train in Colab and save directly to Drive:
-
-```bash
-!python -m experiments.train_ppo --obs-mode partial_state --timesteps 150000 --save-dir "$MODEL_DIR/paper_track_partial"
-```
-
-Evaluate using saved Drive model:
-
-```bash
-!python -m experiments.evaluate_policies --episodes 20 --seed 123 --rl-model "$MODEL_DIR/paper_track_partial/ppo_macrophage_partial_state_best" --obs-mode partial_state --output-csv "$MODEL_DIR/policy_eval_partial_state.csv"
-```
-
-## How to Tune Without Breaking the Model
-
-Recommended tuning order:
-1. `config.py` geometry (`WORLD_ROWS`, `WORLD_COLS`, `COMPARTMENT_SIZE`, bottlenecks).
-2. Replication pressure (`BASE_REPLICATION_PROB`, local carrying capacity, nutrient thresholds).
-3. Recruitment pacing (`NEUTROPHIL_RECRUITMENT_THRESHOLD`, `NEUTROPHIL_ARRIVAL_DELAY`).
-4. Damage economics (`TISSUE_DAMAGE_*`, `HOST_UTILITY_ALPHA/BETA`).
-5. Planning budget (`ROLLOUT_BUDGET`, `MCTS_SIM_DEPTH`).
-
-Practical rule:
-- change one subsystem at a time and keep episode outputs for before/after comparison.
+The first remote experiment should be a **moderate recurrent smoke run**, not a final large run.
 
 ## Development Notes
 
+### Mainline Benchmark
+
+The intended paper-track comparison is:
+- heuristic
+- lightweight MCTS
+- feedforward PPO baseline
+- recurrent PPO mainline
+
+### Full-State Policy
+
+Full-state experiments are not part of the paper-track mainline.
+If legacy full-state code paths still exist, treat them as debugging leftovers or oracle-only support, not as the main research result.
+
 ### Action API
-`Environment.get_macrophage_actions()` currently supports:
+
+`Environment.get_macrophage_actions()` supports:
 - `("move", (dx, dy))`
 - `("attack", None)`
 - `("signal_low", None)`
 - `("signal_medium", None)`
 - `("signal_high", None)`
 
-Any host policy should consume this API rather than hardcoding actions.
+### Reproducibility
 
-### Core Runtime Contract
-If you modify environment internals, keep these stable:
-- `env.step(...)`
-- `env.clone()` for planner rollouts
-- `env.history` keys used by plots and experiments
-- `env.compute_host_utility()`
-- `env.get_grid()` for visualization backends
+Use:
 
-### Performance Tips
-- For faster debugging, set `ROLLOUT_BUDGET = 0` to force heuristic host policy.
-- For reproducible tests, pass `seed` when creating `Environment(seed=...)`.
+```bash
+python -m experiments.seed_repro_check
+```
 
-## Troubleshooting
+## Practical Recommendation
 
-If GUI fails to launch:
-- verify `PyQt5` is installed in the active Python environment
-- run headless workflows first (`experiments/run_simulation.py`)
-
-If runs feel too slow:
-- reduce `ROLLOUT_BUDGET`
-- reduce `MCTS_SIM_DEPTH`
-- use smaller world geometry while iterating
-
-If outcomes look degenerate (always host win or always bacteria win):
-- rebalance recruitment delay and collateral damage before changing many parameters at once
-
-## Documentation Split
-
-- `README.md` (this file): how to use and evolve the codebase.
-- `detailed_game_rule.md`: authoritative mechanics and design specification.
-
-This split is intentional to keep implementation guidance concise and avoid duplicating the rulebook.
+Use the repo this way:
+- local machine: correctness checks, traces, GUI inspection
+- remote runtime: recurrent PPO training and multi-seed evaluation
+- repo: code, docs, and a small number of kept paper-facing summaries

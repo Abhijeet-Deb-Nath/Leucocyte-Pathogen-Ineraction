@@ -1,4 +1,0 @@
-policy,win_rate,tissue_damage,host_utility,episode_length,recruited_neutrophils
-heuristic,0.8,97.63000000000001,-91.704,50.6,12.8
-mcts,0.6,115.38,-108.57399999999998,115.2,9.4
-rl,1.0,71.57,-71.17399999999999,29.4,12.0

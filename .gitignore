@@ -7,10 +7,19 @@ __pycache__/
 *.bak
 *~
 
-# Optional generated result artifacts (leave commented unless you want to ignore run outputs)
-# results/smoke/
-# results/medium_eval/
-# results/final_eval/
-# results/sweeps/
-# results/simulations/
-# results/archive/
+# Generated model artifacts
+models/*
+!models/README.md
+
+# Generated result artifacts
+results/archive/*
+results/medium_eval/*
+results/simulations/*
+results/smoke/*
+results/sweeps/*
+!results/README.md
+!results/archive/.gitkeep
+!results/medium_eval/.gitkeep
+!results/simulations/.gitkeep
+!results/smoke/.gitkeep
+!results/sweeps/.gitkeep
