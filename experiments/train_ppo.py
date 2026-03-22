@@ -158,28 +158,28 @@ def _behavior_clone_pretrain(model, observations, action_indices, metadata, bc_e
                 sample_weights.append(0.15)
             elif visible_bacteria > 0:
                 if queued_reinforcements > 0 or visible_neutrophils > 0:
-                    sample_weights.append(0.6)
+                    sample_weights.append(0.2)
                 elif local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM:
-                    sample_weights.append(5.5)
+                    sample_weights.append(2.8)
                 elif (
                     local_pressure >= config.HEURISTIC_SIGNAL_PRESSURE_LOW
                     and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD * 0.75
                 ):
-                    sample_weights.append(3.5)
+                    sample_weights.append(1.4)
                 else:
-                    sample_weights.append(1.0)
+                    sample_weights.append(0.35)
             elif (
                 queued_reinforcements == 0
                 and local_peak >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD
             ):
-                sample_weights.append(1.8)
+                sample_weights.append(0.4)
             else:
-                sample_weights.append(0.3)
+                sample_weights.append(0.1)
         elif action == ("move", (0, 0)):
             sample_weights.append(0.05 if visible_bacteria > 0 else 0.15)
         else:
             if visible_bacteria > 0:
-                sample_weights.append(4.8 if approaches_visible else 0.35)
+                sample_weights.append(5.8 if approaches_visible else 0.45)
             elif local_peak > 0.12:
                 sample_weights.append(1.6)
             else:

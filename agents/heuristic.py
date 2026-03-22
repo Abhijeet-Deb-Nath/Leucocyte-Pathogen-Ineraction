@@ -53,8 +53,9 @@ class HeuristicAgent:
 
             # Favor direct engagement unless the local burden is severe or the
             # macrophage is already under clear pressure.
-            if pressure >= config.HEURISTIC_SIGNAL_PRESSURE_HIGH or (
-                low_health and pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM
+            if support_missing and (
+                pressure >= config.HEURISTIC_SIGNAL_PRESSURE_HIGH
+                or (low_health and pressure >= config.HEURISTIC_SIGNAL_PRESSURE_MEDIUM)
             ):
                 signal_action = self._select_signal_action(action_set, level="high")
                 if signal_action is not None:
