@@ -1,12 +1,7 @@
 """Compare Pathway 1 bacteria policy settings by adaptive stochasticity."""
 
-import sys
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import config
 from simulator.environment import Environment
@@ -30,8 +25,8 @@ def run_comparison_experiments(trials_per_mode=8):
             utilities = []
             durations = []
 
-            for _ in range(trials_per_mode):
-                env = Environment()
+            for trial in range(trials_per_mode):
+                env = Environment(seed=trial)
                 while not env.done:
                     env.step()
 

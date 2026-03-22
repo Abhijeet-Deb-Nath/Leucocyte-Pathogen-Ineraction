@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pathway1-immune-simulator"
+version = "0.1.0"
+description = "Pathway 1 immune-pathogen simulator and RL experiments"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "pandas",
+  "matplotlib",
+  "PyQt5",
+  "gymnasium",
+  "stable-baselines3",
+  "sb3-contrib",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["agents*", "simulator*", "visualization*", "experiments*"]

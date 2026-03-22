@@ -1,11 +1,6 @@
 """Pathway 1 parameter sweep focused on recruitment delay and damage scaling."""
 
-import sys
-from pathlib import Path
-
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import config
 from simulator.environment import Environment

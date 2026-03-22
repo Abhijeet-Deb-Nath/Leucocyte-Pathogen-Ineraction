@@ -12,8 +12,9 @@ class AdaptiveBacteriaAgent:
         )
 
     def choose_action(self, bacterium, env):
-        if random.random() < self.stochasticity:
-            return random.choice([(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)])
+        rng = getattr(env, "rng", random)
+        if rng.random() < self.stochasticity:
+            return rng.choice([(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)])
 
         bx, by = bacterium.position
         mx, my = env.macrophage.position

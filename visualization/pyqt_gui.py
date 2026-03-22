@@ -142,9 +142,10 @@ class GridCanvas(QWidget):
 
 
 class SimulationGUI(QMainWindow):
-    def __init__(self, env):
+    def __init__(self, env, policy_agent=None):
         super().__init__()
         self.env = env
+        self.policy_agent = policy_agent
         self.timer = QTimer()
         self.timer.timeout.connect(self.step_simulation)
         self.interval = 80
@@ -413,7 +414,11 @@ class SimulationGUI(QMainWindow):
 
     def step_once(self):
         if not self.env.done:
-            self.env.step()
+            if self.policy_agent is None:
+                self.env.step()
+            else:
+                action = self.policy_agent.choose_action(self.env)
+                self.env.step(macrophage_action=action)
             self.canvas.update_display(self.env)
             self.refresh_status()
 
@@ -452,9 +457,9 @@ class SimulationGUI(QMainWindow):
         self.status.setText("\n".join(lines))
 
 
-def launch_gui(env):
+def launch_gui(env, policy_agent=None):
     app = QApplication(sys.argv)
-    gui = SimulationGUI(env)
+    gui = SimulationGUI(env, policy_agent=policy_agent)
     gui.show()
     sys.exit(app.exec_())
 

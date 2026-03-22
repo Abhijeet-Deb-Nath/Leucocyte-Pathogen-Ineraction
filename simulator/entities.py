@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 BacteriaState = Literal["planktonic", "attached", "microcolony", "biofilm"]
@@ -28,3 +28,4 @@ class Neutrophil:
     position: tuple[int, int]
     health: int
     age: int = 0
+    recent_positions: list[tuple[int, int]] = field(default_factory=list)

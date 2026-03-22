@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.tmp
+*.temp
+*.bak
+*~
+
+# Optional generated result artifacts (leave commented unless you want to ignore run outputs)
+# results/smoke/
+# results/medium_eval/
+# results/final_eval/
+# results/sweeps/
+# results/simulations/
+# results/archive/

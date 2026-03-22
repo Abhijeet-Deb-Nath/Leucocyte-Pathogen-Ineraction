@@ -1,0 +1,4 @@
+policy,win_rate,tissue_damage,host_utility,episode_length,recruited_neutrophils
+heuristic,0.7,109.9775,-104.98700000000001,110.4,8.2
+mcts,0.05,161.4075,-164.08,165.1,0.25
+rl,0.85,105.45,-103.19575,52.45,14.25

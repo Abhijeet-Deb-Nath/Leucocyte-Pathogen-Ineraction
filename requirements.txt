@@ -1,0 +1,7 @@
+numpy
+pandas
+matplotlib
+PyQt5
+gymnasium
+stable-baselines3
+sb3-contrib

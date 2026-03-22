@@ -1,5 +1,6 @@
 import random
 from collections import deque
+import copy
 
 import numpy as np
 
@@ -10,8 +11,11 @@ from simulator.entities import Bacteria, Macrophage, Neutrophil
 class Environment:
     """Pathway 1 simulator: compartmentalized hotspot with delayed neutrophil recruitment."""
 
-    def __init__(self, seed=None):
-        self.rng = random.Random(config.SEED if seed is None else seed)
+    def __init__(self, seed=None, macrophage_start_mode="surface_random"):
+        self.seed_value = config.SEED if seed is None else int(seed)
+        self.rng = random.Random(self.seed_value)
+        self.np_rng = np.random.default_rng(self.seed_value)
+        self.macrophage_start_mode = macrophage_start_mode
         self.size = config.GRID_SIZE
         self.width = self.size
         self.height = self.size
@@ -23,20 +27,26 @@ class Environment:
 
         self.compartment_map = self._build_compartment_map()
         self.blocked_tiles = self._build_blocked_tiles()
+        self.doorway_tiles = self._build_doorway_tiles()
         self.surface_patches = self._build_surface_patches()
 
         self.nutrients = self._initialize_nutrients()
         self.chemokine = np.zeros((self.height, self.width), dtype=float)
         self.recruitment_queue = deque()
+        self.recent_chemokine_burden = 0.0
+        self.macrophage_previous_position = None
 
         self.macrophage = self._spawn_macrophage()
         self.bacteria = self._spawn_bacteria()
+        self._apply_macrophage_start_mode()
         self.neutrophils = []
+        self._prime_initial_chemokine_field()
 
         self.killed_bacteria = 0
         self.tissue_damage = 0.0
         self.immune_usage = 0.0
         self.chemokine_events = 0
+        self.recruited_neutrophils_total = 0
         self.current_phase = "seeding"
 
         self.history = {
@@ -149,6 +159,21 @@ class Environment:
                     patches.add((x, y))
         return patches
 
+    def _build_doorway_tiles(self):
+        doorways = set()
+        for y in range(self.height):
+            for x in range(self.width):
+                if not self._is_walkable((x, y)):
+                    continue
+                neighbor_compartments = set()
+                for nx, ny in self._valid_neighbors((x, y), include_stay=False):
+                    cid = int(self.compartment_map[ny, nx])
+                    if cid >= 0:
+                        neighbor_compartments.add(cid)
+                if len(neighbor_compartments) >= 2:
+                    doorways.add((x, y))
+        return doorways
+
     def _initialize_nutrients(self):
         nutrients = np.zeros((self.height, self.width), dtype=float)
         for y in range(self.height):
@@ -158,6 +183,14 @@ class Environment:
         return nutrients
 
     def _spawn_macrophage(self):
+        if self.surface_patches:
+            candidates = [pos for pos in self.surface_patches if self._is_walkable(pos)]
+            if candidates:
+                return Macrophage(
+                    position=self.rng.choice(candidates),
+                    health=config.MACROPHAGE_MAX_HEALTH,
+                )
+
         center = (self.width // 2, self.height // 2)
         if not self._is_walkable(center):
             center = self._random_walkable_cell()
@@ -187,6 +220,55 @@ class Environment:
             y = self.rng.randrange(self.height)
             if self._is_walkable((x, y)):
                 return (x, y)
+
+    def _apply_macrophage_start_mode(self):
+        if self.macrophage_start_mode != "near_bacteria" or not self.bacteria:
+            return
+
+        desired_distance = max(3, min(self.width, config.MACROPHAGE_SENSE_RADIUS - 1))
+        candidates = []
+        occupied = {b.position for b in self.bacteria}
+        for y in range(self.height):
+            for x in range(self.width):
+                pos = (x, y)
+                if pos in occupied or not self._is_walkable(pos):
+                    continue
+                nearest = min(
+                    abs(b.position[0] - x) + abs(b.position[1] - y)
+                    for b in self.bacteria
+                )
+                if nearest < 2 or nearest > config.MACROPHAGE_SENSE_RADIUS:
+                    continue
+                score = -abs(nearest - desired_distance)
+                if pos in self.doorway_tiles:
+                    score += 0.3
+                candidates.append((score, pos))
+
+        if not candidates:
+            return
+
+        best_score = max(score for score, _ in candidates)
+        best_positions = [pos for score, pos in candidates if score >= best_score - 1e-6]
+        self.macrophage.position = self.rng.choice(best_positions)
+
+    def _deposit_bacteria_alarm_signal(self):
+        for b in self.bacteria:
+            x, y = b.position
+            alarm = config.BACTERIA_ALARM_CHEMOKINE_RELEASE
+            if b.state in {"microcolony", "biofilm"}:
+                alarm *= 1.25
+            self.chemokine[y, x] += alarm
+
+    def _prime_initial_chemokine_field(self):
+        # Seed a low local alarm field at episode start so partial controllers
+        # can sense an existing infection without getting free global knowledge.
+        for _ in range(2):
+            self._deposit_bacteria_alarm_signal()
+            self._diffuse_chemokine()
+            self.chemokine *= config.CHEMOKINE_DECAY
+        peak = float(self.chemokine.max())
+        mean_chem = float(self.chemokine.mean())
+        self.recent_chemokine_burden = 0.7 * peak + 0.3 * mean_chem
 
     # ---------- Core API ----------
 
@@ -243,8 +325,12 @@ class Environment:
 
     def clone(self):
         env_clone = Environment.__new__(Environment)
+        env_clone.seed_value = self.seed_value
         env_clone.rng = random.Random()
         env_clone.rng.setstate(self.rng.getstate())
+        env_clone.np_rng = np.random.default_rng()
+        env_clone.np_rng.bit_generator.state = copy.deepcopy(self.np_rng.bit_generator.state)
+        env_clone.macrophage_start_mode = self.macrophage_start_mode
         env_clone.size = self.size
         env_clone.width = self.width
         env_clone.height = self.height
@@ -255,10 +341,13 @@ class Environment:
 
         env_clone.compartment_map = np.array(self.compartment_map, copy=True)
         env_clone.blocked_tiles = set(self.blocked_tiles)
+        env_clone.doorway_tiles = set(self.doorway_tiles)
         env_clone.surface_patches = set(self.surface_patches)
         env_clone.nutrients = np.array(self.nutrients, copy=True)
         env_clone.chemokine = np.array(self.chemokine, copy=True)
         env_clone.recruitment_queue = deque(self.recruitment_queue)
+        env_clone.recent_chemokine_burden = self.recent_chemokine_burden
+        env_clone.macrophage_previous_position = self.macrophage_previous_position
 
         env_clone.macrophage = Macrophage(
             position=self.macrophage.position,
@@ -280,13 +369,20 @@ class Environment:
             for b in self.bacteria
         ]
         env_clone.neutrophils = [
-            Neutrophil(position=n.position, health=n.health, age=n.age) for n in self.neutrophils
+            Neutrophil(
+                position=n.position,
+                health=n.health,
+                age=n.age,
+                recent_positions=list(n.recent_positions),
+            )
+            for n in self.neutrophils
         ]
 
         env_clone.killed_bacteria = self.killed_bacteria
         env_clone.tissue_damage = self.tissue_damage
         env_clone.immune_usage = self.immune_usage
         env_clone.chemokine_events = self.chemokine_events
+        env_clone.recruited_neutrophils_total = self.recruited_neutrophils_total
         env_clone.current_phase = self.current_phase
 
         env_clone.history = None
@@ -299,16 +395,27 @@ class Environment:
     def get_macrophage_actions(self):
         actions = []
         mx, my = self.macrophage.position
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1), (0, 0)]:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = mx + dx, my + dy
             if self._is_walkable((nx, ny)):
+                if (
+                    self.macrophage_previous_position is not None
+                    and (nx, ny) == self.macrophage_previous_position
+                    and not self.can_macrophage_hold_position()
+                ):
+                    continue
                 actions.append(("move", (dx, dy)))
+
+        if self.can_macrophage_hold_position():
+            actions.append(("move", (0, 0)))
 
         if self._adjacent_bacteria(self.macrophage.position):
             actions.append(("attack", None))
 
-        if self.macrophage.signal_cooldown <= 0:
-            actions.append(("signal", None))
+        if self.macrophage.signal_cooldown <= 0 and self.can_macrophage_signal():
+            actions.append(("signal_low", None))
+            actions.append(("signal_medium", None))
+            actions.append(("signal_high", None))
 
         return actions
 
@@ -328,6 +435,42 @@ class Environment:
             if abs(n.position[0] - cx) + abs(n.position[1] - cy) <= radius
         ]
 
+    def get_local_chemokine_peak(self, center, radius):
+        cx, cy = center
+        peak = 0.0
+        for y in range(max(0, cy - radius), min(self.height, cy + radius + 1)):
+            for x in range(max(0, cx - radius), min(self.width, cx + radius + 1)):
+                if abs(x - cx) + abs(y - cy) > radius:
+                    continue
+                peak = max(peak, float(self.chemokine[y, x]))
+        return peak
+
+    def can_macrophage_signal(self):
+        if self._adjacent_bacteria(self.macrophage.position):
+            return True
+        return (
+            self.get_local_chemokine_peak(
+                self.macrophage.position,
+                config.MACROPHAGE_SIGNAL_TRIGGER_RADIUS,
+            )
+            >= config.MACROPHAGE_SIGNAL_LOCAL_CHEMOKINE_THRESHOLD
+        )
+
+    def can_macrophage_hold_position(self):
+        local_neutrophils = self.get_local_neutrophils(
+            self.macrophage.position,
+            config.MACROPHAGE_SENSE_RADIUS,
+        )
+        if local_neutrophils or self._adjacent_bacteria(self.macrophage.position):
+            return True
+        return (
+            self.get_local_chemokine_peak(
+                self.macrophage.position,
+                config.MACROPHAGE_SIGNAL_TRIGGER_RADIUS,
+            )
+            >= config.MACROPHAGE_HOLD_LOCAL_CHEMOKINE_THRESHOLD
+        )
+
     # ---------- Internal mechanics ----------
 
     def _execute_macrophage_action(self, action):
@@ -340,6 +483,8 @@ class Environment:
             mx, my = self.macrophage.position
             new_pos = (mx + dx, my + dy)
             if self._is_walkable(new_pos):
+                if new_pos != self.macrophage.position:
+                    self.macrophage_previous_position = self.macrophage.position
                 self.macrophage.position = new_pos
 
         elif atype == "attack":
@@ -355,14 +500,31 @@ class Environment:
             self.chemokine[my, mx] += config.CHEMOKINE_RELEASE_PER_CONTACT
             self.chemokine_events += 1
 
-        elif atype == "signal":
+        elif atype in {"signal", "signal_low", "signal_medium", "signal_high"}:
             mx, my = self.macrophage.position
-            self.chemokine[my, mx] += config.MACROPHAGE_SIGNAL_STRENGTH
+            strength_map = {
+                "signal": config.MACROPHAGE_SIGNAL_MEDIUM_STRENGTH,
+                "signal_low": config.MACROPHAGE_SIGNAL_LOW_STRENGTH,
+                "signal_medium": config.MACROPHAGE_SIGNAL_MEDIUM_STRENGTH,
+                "signal_high": config.MACROPHAGE_SIGNAL_HIGH_STRENGTH,
+            }
+            cost_map = {
+                "signal": config.MACROPHAGE_SIGNAL_MEDIUM_COST,
+                "signal_low": config.MACROPHAGE_SIGNAL_LOW_COST,
+                "signal_medium": config.MACROPHAGE_SIGNAL_MEDIUM_COST,
+                "signal_high": config.MACROPHAGE_SIGNAL_HIGH_COST,
+            }
+            self.chemokine[my, mx] += strength_map[atype]
             self.macrophage.signal_cooldown = config.MACROPHAGE_SIGNAL_COOLDOWN
-            self.immune_usage += 1.0
+            self.immune_usage += cost_map[atype]
             self.chemokine_events += 1
 
-        if self.macrophage.signal_cooldown > 0 and atype != "signal":
+        if self.macrophage.signal_cooldown > 0 and atype not in {
+            "signal",
+            "signal_low",
+            "signal_medium",
+            "signal_high",
+        }:
             self.macrophage.signal_cooldown -= 1
 
     def _execute_bacteria_phase(self):
@@ -424,20 +586,41 @@ class Environment:
             self.nutrients[y, x] -= consumed
             b.health = min(config.BACTERIA_MAX_HEALTH, b.health + int(consumed > 0.3))
 
+        # Infection sites emit a weak tissue alarm signal even before direct contact,
+        # giving local controllers a biologically grounded cue to investigate.
+        self._deposit_bacteria_alarm_signal()
+
         # Chemokine diffusion + decay + small noise.
         self._diffuse_chemokine()
         self.chemokine *= config.CHEMOKINE_DECAY
 
         if config.CHEMOKINE_GRADIENT_NOISE > 0:
-            noise = np.random.normal(0.0, config.CHEMOKINE_GRADIENT_NOISE, size=self.chemokine.shape)
+            noise = self.np_rng.normal(0.0, config.CHEMOKINE_GRADIENT_NOISE, size=self.chemokine.shape)
             self.chemokine += noise
             self.chemokine = np.clip(self.chemokine, 0.0, None)
 
-        # Recruitment triggers.
+        # Recruitment triggers using both immediate intensity and recent burden.
         peak = float(self.chemokine.max())
-        if peak >= config.NEUTROPHIL_RECRUITMENT_THRESHOLD and len(self.neutrophils) < config.MAX_NEUTROPHIL_POOL:
-            due = self.step_count + config.NEUTROPHIL_ARRIVAL_DELAY
-            self.recruitment_queue.append(due)
+        mean_chem = float(self.chemokine.mean())
+        instantaneous_burden = 0.7 * peak + 0.3 * mean_chem
+        ema_alpha = config.NEUTROPHIL_BURDEN_EMA
+        self.recent_chemokine_burden = (1.0 - ema_alpha) * self.recent_chemokine_burden + ema_alpha * instantaneous_burden
+
+        if len(self.neutrophils) < config.MAX_NEUTROPHIL_POOL:
+            composite = 0.6 * peak + 0.4 * self.recent_chemokine_burden
+            threshold = config.NEUTROPHIL_RECRUITMENT_THRESHOLD
+            if composite >= threshold:
+                pressure = max(0.0, (composite - threshold) / max(threshold, 1e-6))
+                requested = 1 + int(round(pressure * 2.0))
+                requested = max(1, min(config.NEUTROPHIL_MAX_QUEUE_PER_STEP, requested))
+                for _ in range(requested):
+                    jitter = self.rng.randint(
+                        -config.NEUTROPHIL_ARRIVAL_DELAY_JITTER,
+                        config.NEUTROPHIL_ARRIVAL_DELAY_JITTER,
+                    )
+                    due = self.step_count + max(1, config.NEUTROPHIL_ARRIVAL_DELAY + jitter)
+                    self.recruitment_queue.append(due)
+                self.recruitment_queue = deque(sorted(self.recruitment_queue))
 
         while self.recruitment_queue and self.recruitment_queue[0] <= self.step_count:
             self.recruitment_queue.popleft()
@@ -554,15 +737,56 @@ class Environment:
 
     def _move_neutrophil(self, n):
         nearby = self.get_local_bacteria(n.position, config.NEUTROPHIL_SENSE_RADIUS)
-        if nearby:
-            target = min(nearby, key=lambda b: self._manhattan(n.position, b.position)).position
-            dx, dy = self._step_toward(n.position, target)
-        else:
-            dx, dy = self.rng.choice([(-1, 0), (1, 0), (0, -1), (0, 1), (0, 0)])
+        src = n.position
+        candidates = self._valid_neighbors(src, include_stay=True)
+        if not candidates:
+            return
 
-        next_pos = (n.position[0] + dx, n.position[1] + dy)
-        if self._is_walkable(next_pos) and next_pos != self.macrophage.position:
+        current_compartment = int(self.compartment_map[src[1], src[0]])
+
+        def candidate_score(pos):
+            score = 0.0
+
+            if nearby:
+                nearest = min(self._manhattan(pos, b.position) for b in nearby)
+                score -= 2.2 * nearest
+            else:
+                py, px = pos[1], pos[0]
+                local_chem = float(self.chemokine[py, px])
+                current_chem = float(self.chemokine[src[1], src[0]])
+                score += 1.0 * (local_chem - current_chem)
+
+            local_crowding = sum(
+                1
+                for other in self.neutrophils
+                if other is not n
+                and self._manhattan(pos, other.position) <= config.NEUTROPHIL_CROWDING_RADIUS
+            )
+            score -= local_crowding * config.NEUTROPHIL_CROWDING_PENALTY
+
+            if pos in n.recent_positions:
+                score -= config.NEUTROPHIL_RECENT_VISIT_PENALTY
+
+            candidate_compartment = int(self.compartment_map[pos[1], pos[0]])
+            crossing = candidate_compartment != current_compartment
+            if pos in self.doorway_tiles:
+                score += config.NEUTROPHIL_DOORWAY_BONUS
+                if crossing:
+                    score += 0.2
+
+            if pos == src:
+                score -= 0.05
+
+            return score
+
+        ranked = sorted(candidates, key=candidate_score, reverse=True)
+        next_pos = ranked[0]
+        if next_pos != self.macrophage.position:
             n.position = next_pos
+
+        n.recent_positions.append(n.position)
+        if len(n.recent_positions) > config.NEUTROPHIL_RECENT_VISIT_MEMORY:
+            n.recent_positions.pop(0)
 
     def _neutrophil_attack(self, n):
         targets = self._adjacent_bacteria(n.position)
@@ -584,23 +808,55 @@ class Environment:
         self.bacteria = survivors
 
     def _spawn_neutrophil(self):
-        # Spawn near boundaries to mimic recruited entry.
+        # Spawn near boundaries with bias toward inflammatory edge sectors.
         edge_cells = []
         for x in range(self.width):
             edge_cells.extend([(x, 0), (x, self.height - 1)])
-        for y in range(self.height):
+        for y in range(1, self.height - 1):
             edge_cells.extend([(0, y), (self.width - 1, y)])
 
-        self.rng.shuffle(edge_cells)
+        candidates = []
+        hotspot_y, hotspot_x = divmod(int(self.chemokine.argmax()), self.width)
         for pos in edge_cells:
+            x, y = pos
             if not self._is_walkable(pos):
                 continue
             if pos == self.macrophage.position:
                 continue
             if any(b.position == pos for b in self.bacteria):
                 continue
-            self.neutrophils.append(Neutrophil(position=pos, health=40))
+            if any(n.position == pos for n in self.neutrophils):
+                continue
+
+            x0, x1 = max(0, x - 2), min(self.width, x + 3)
+            y0, y1 = max(0, y - 2), min(self.height, y + 3)
+            local_window = self.chemokine[y0:y1, x0:x1]
+            local_signal = float(local_window.mean()) if local_window.size else 0.0
+
+            axial_alignment = 0.0
+            if x == 0 or x == self.width - 1:
+                axial_alignment = max(0.0, 1.0 - (abs(y - hotspot_y) / max(1, self.height - 1)))
+            else:
+                axial_alignment = max(0.0, 1.0 - (abs(x - hotspot_x) / max(1, self.width - 1)))
+
+            weight = 1.0 + local_signal + 0.8 * axial_alignment
+            candidates.append((pos, weight))
+
+        if not candidates:
             return
+
+        total_weight = sum(w for _, w in candidates)
+        pick = self.rng.random() * total_weight
+        running = 0.0
+        for pos, weight in candidates:
+            running += weight
+            if running >= pick:
+                self.neutrophils.append(Neutrophil(position=pos, health=40))
+                self.recruited_neutrophils_total += 1
+                return
+
+        self.neutrophils.append(Neutrophil(position=candidates[-1][0], health=40))
+        self.recruited_neutrophils_total += 1
 
     def _update_phase_label(self):
         if len(self.neutrophils) > 0 and len(self.bacteria) > 0:
