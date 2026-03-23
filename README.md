@@ -46,10 +46,24 @@ Held-out 100-seed benchmark:
   - `win_rate = 0.58`
   - `tissue_damage = 94.1710`
   - `host_utility = -90.3152`
+- hierarchical `BC-only`:
+  - `win_rate = 0.02`
+  - `tissue_damage = 133.9490`
+  - `host_utility = -133.4290`
 - hierarchical `BC + DAgger`:
   - `win_rate = 0.60`
   - `tissue_damage = 90.6470`
   - `host_utility = -86.72115`
+- hierarchical `BC + DAgger + RL`:
+  - `win_rate = 0.34`
+  - `tissue_damage = 100.9305`
+  - `host_utility = -97.91645`
+
+Final ablation status:
+
+- `BC-only` fails badly under partial-observation compounding error
+- `BC + DAgger` is the learned mainline
+- `BC + DAgger + RL` degrades the stronger frozen DAgger policy and remains a negative ablation
 
 Robustness summary:
 
@@ -77,6 +91,7 @@ These were removed because they were no longer promising relative to the hardwar
 - `models/`: local checkpoint space; `models/frozen/` is the stable home for the main learned checkpoint
 - `results/final_eval/`: curated held-out evaluation and reproducibility summaries
 - `results/robustness/`: curated robustness bundles for the frozen mainline
+- `results/paper_ready/`: regenerated comparison tables and publication-facing figures
 
 ## Setup
 
@@ -150,6 +165,7 @@ Curated exceptions that are intentionally kept:
 
 - `results/final_eval/**`
 - `results/robustness/**`
+- `results/paper_ready/**`
 
 Heavy intermediate artifacts should still live in Google Drive or another external location.
 

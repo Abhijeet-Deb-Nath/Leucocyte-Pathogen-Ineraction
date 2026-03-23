@@ -1,13 +1,25 @@
 # Results Directory
 
-This directory is intentionally kept free of versioned experiment artifacts.
+This directory now contains a small set of curated paper-track result bundles.
 
-Use it only as a local scratch destination when you explicitly choose to write generated files there.
+Versioned subdirectories:
+
+- `results/final_eval/`
+- `results/robustness/`
+- `results/paper_ready/`
+
+These are intentional exceptions for:
+
+- frozen held-out evaluation summaries
+- curated robustness outputs
+- generated paper tables and figures
 
 Do not keep in git:
-- evaluation CSVs
-- smoke-run summaries
-- simulation history exports
-- remote-training outputs
 
-If you generate results locally, inspect them, move anything important to external storage, and delete the rest.
+- ad hoc smoke outputs
+- temporary Colab folders
+- duplicate downloaded bundles outside curated result folders
+- simulation history exports
+- arbitrary exploratory CSV dumps
+
+Anything not part of the curated paper path should stay external or be deleted after inspection.

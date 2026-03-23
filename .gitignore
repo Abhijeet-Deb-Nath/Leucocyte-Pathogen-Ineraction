@@ -18,6 +18,8 @@ results/**
 !results/final_eval/**
 !results/robustness/
 !results/robustness/**
+!results/paper_ready/
+!results/paper_ready/**
 
 # Common local exports
 simulation_history_pathway1.csv

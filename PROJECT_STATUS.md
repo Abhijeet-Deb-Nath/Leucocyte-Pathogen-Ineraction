@@ -20,7 +20,10 @@ Current frozen checkpoint:
 
 Current evidence snapshot:
 
+- the full four-row held-out comparison table is now complete
 - the frozen DAgger checkpoint slightly beat the heuristic on the main 100-seed held-out benchmark
+- BC-only collapsed on the same benchmark, confirming that plain imitation is not enough
+- RL fine-tuning remained worse than the frozen DAgger checkpoint
 - reproducibility across training seeds is mixed, but supports a competitive-method claim
 - the corrected full robustness suite now also supports the frozen learned controller across all reported stress settings
 
@@ -79,10 +82,10 @@ The repo is now aligned around this plan:
 
 The next work should be:
 
-- finalize the main comparison table for `heuristic`, `BC-only`, `BC + DAgger`, and `BC + DAgger + RL`
+- keep the completed main comparison table for `heuristic`, `BC-only`, `BC + DAgger`, and `BC + DAgger + RL` as the fixed paper result
 - keep the reproducibility table centered on training seeds `42`, `43`, and `44`
 - use the corrected robustness bundle in `results/robustness/hier_dagger_main/`
-- prepare paper figures and a short GUI demo around the frozen DAgger checkpoint
+- prepare paper figures, behavior-difference writeup, and a short GUI demo around the frozen DAgger checkpoint
 
 These are evidence-and-packaging steps, not "find a brand new mainline" steps.
 

@@ -1,19 +1,32 @@
 # Final Evaluation Artifacts
 
-This directory stores the final paper-track evaluation outputs for the frozen learned controller and key baselines.
+This directory stores the curated paper-track evaluation outputs for the final comparison table, reproducibility summary, and frozen learned-controller reference.
 
-Recommended files for the current mainline:
+Main comparison artifacts:
+
+- `hier_bc_100ep.csv`
+- `hier_bc_100ep_summary.csv`
+- `hier_dagger_100ep.csv`
+- `hier_dagger_100ep_summary.csv`
+- `hier_rl_100ep.csv`
+- `hier_rl_100ep_summary.csv`
+
+Additional curated mainline artifacts:
 
 - `hier_dagger_training_summary.json`
 - `hier_dagger_50ep.csv`
 - `hier_dagger_50ep_summary.csv`
-- `hier_dagger_100ep.csv`
-- `hier_dagger_100ep_summary.csv`
 - `hier_dagger_final_eval_summary.csv`
+- `reproducibility_table.csv`
 
-These files correspond to the frozen hierarchical BC+DAgger controller.
+Interpretation of the current comparison table:
 
-The current research status is:
+- `heuristic` = teacher and baseline
+- `hierarchical BC-only` = negative ablation that fails under distribution shift
+- `hierarchical BC+DAgger` = main learned method
+- `hierarchical BC+DAgger+RL` = negative ablation that degrades the DAgger prior
+
+The current research status is therefore:
 
 - heuristic = teacher and baseline
 - hierarchical recurrent BC+DAgger = main learned method
