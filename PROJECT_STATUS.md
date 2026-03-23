@@ -2,26 +2,27 @@
 
 ## Current Standing
 
-This project is no longer pretending to have multiple equally alive algorithmic paths.
+This project is no longer spread across multiple equally alive algorithm branches.
 
 The repo is now organized around:
+
 - one fixed partial-observation environment
 - one heuristic teacher / baseline
 - one learned-controller mainline
 
-The learned controller has now reached a credible paper-track state.
-
 Current best learned method:
+
 - hierarchical recurrent `BC + DAgger`
 
 Current frozen checkpoint:
+
 - `models/frozen/hier_dagger_main.pt`
 
-Current result snapshot:
-- the frozen DAgger checkpoint is competitive with the heuristic and was slightly better on the main `100`-seed held-out evaluation
-- reproducibility across training seeds is mixed but still supports a competitive-method claim
-- robustness evaluation is also promising under multiple stress settings
-- see `RESULTS_SUMMARY.md`, `ROBUSTNESS_RESULTS.md`, and `results/final_eval/REPRODUCIBILITY_SUMMARY.md`
+Current evidence snapshot:
+
+- the frozen DAgger checkpoint slightly beat the heuristic on the main 100-seed held-out benchmark
+- reproducibility across training seeds is mixed, but supports a competitive-method claim
+- the corrected full robustness suite now also supports the frozen learned controller across all reported stress settings
 
 ## What Is In The Code Right Now
 
@@ -31,19 +32,22 @@ Current result snapshot:
 - sequence-aware recurrent behavior-cloning bootstrap
 - DAgger-style learner-state relabeling
 - optional RL fine-tuning after the DAgger stage
-- heuristic-vs-learned evaluation script
+- heuristic-vs-learned evaluation scripts
+- robustness suite with temporary config overrides
 - explicit-policy simulation runner with GUI support
 
 ## What Was Removed
 
-Removed from the active codebase:
+Removed from the active paper path:
+
 - runtime MCTS and planner-specific hooks
 - hidden planner fallback inside the simulator
-- planner-vs-RL comparison scripts
-- exploratory bacteria-mode and parameter-sweep scripts tied to the removed default control path
-- versioned local CSV artifacts that were muddying the project goal
+- planner-vs-learned comparison scripts
+- exploratory planner-era sweep artifacts
+- redundant local result dumps outside curated result folders
 
-These were removed because they were no longer the most promising path for:
+These removals were made because they were no longer the strongest path for:
+
 - partial observability
 - stochastic dynamics
 - local hardware constraints
@@ -52,6 +56,7 @@ These were removed because they were no longer the most promising path for:
 ## Honest Assessment
 
 Current evidence says:
+
 - the heuristic is a strong teacher and baseline
 - flat PPO was not a good fit
 - planner-based control was too expensive and too weak for the demo setting
@@ -59,28 +64,32 @@ Current evidence says:
 - hierarchical `BC + DAgger` produced the first competitive learned controller
 - the first RL fine-tuning attempt degraded the DAgger policy
 
-So the project is no longer blocked by “no viable learned path.” The next work is now about consolidation, reproducibility, robustness, and careful extensions.
+So the project is no longer blocked by "no viable learned path." The work now is about evidence, reporting, and careful future extensions.
 
 ## Active Research Direction
 
-The repo is now aligned around a single plan:
+The repo is now aligned around this plan:
 
 1. Keep the benchmark environment fixed.
 2. Keep the heuristic only as teacher and baseline.
 3. Use hierarchical recurrent `BC + DAgger` as the main learned controller.
-4. Revisit RL fine-tuning only if it can improve the frozen DAgger checkpoint without destabilizing it.
+4. Treat RL fine-tuning only as an ablation until it can improve the frozen checkpoint without destabilizing it.
 
-The next experiment steps should be:
-- rerun and validate the `high_bacteria_stochasticity` robustness suite after the bacteria-policy bug fix
-- finalize paper tables for `heuristic`, `BC-only`, `BC+DAgger`, and `BC+DAgger+RL`
-- organize robustness tables around the now-validated stress suites
-- keep GUI validation centered on the frozen DAgger checkpoint
+## Next Concrete Work
 
-These are now organization-and-evidence steps, not “find a new mainline” steps.
+The next work should be:
+
+- finalize the main comparison table for `heuristic`, `BC-only`, `BC + DAgger`, and `BC + DAgger + RL`
+- keep the reproducibility table centered on training seeds `42`, `43`, and `44`
+- use the corrected robustness bundle in `results/robustness/hier_dagger_main/`
+- prepare paper figures and a short GUI demo around the frozen DAgger checkpoint
+
+These are evidence-and-packaging steps, not "find a brand new mainline" steps.
 
 ## What The Repo Is For Now
 
 This codebase should now be used for:
+
 - environment development
 - heuristic teacher inspection
 - learned-controller research on the hierarchical mainline
@@ -88,6 +97,7 @@ This codebase should now be used for:
 - final demo and paper artifact organization
 
 This codebase should not be treated as:
+
 - a planner benchmark zoo
-- a storage location for generated artifacts
+- a storage location for arbitrary generated artifacts
 - a record of every abandoned algorithmic branch

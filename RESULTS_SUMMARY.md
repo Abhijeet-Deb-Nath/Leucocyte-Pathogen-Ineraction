@@ -99,9 +99,9 @@ Three training seeds were examined for the hierarchical `BC + DAgger` method.
 
 Approximate learned mean:
 
-- `win_rate ≈ 0.55`
-- `tissue_damage ≈ 92.99`
-- `host_utility ≈ -89.60`
+- `win_rate ~ 0.55`
+- `tissue_damage ~ 92.99`
+- `host_utility ~ -89.60`
 
 Interpretation:
 
@@ -110,11 +110,11 @@ Interpretation:
 - the best run beats the heuristic
 - the average learned run is slightly worse on win rate but slightly better on tissue damage and host utility
 
-This means the correct scientific claim is:
+The correct scientific claim is:
 
-- the hierarchical `BC + DAgger` controller is **competitive and often more tissue-preserving**
+- the hierarchical `BC + DAgger` controller is competitive and often more tissue-preserving
 
-The correct claim is **not**:
+The correct claim is not:
 
 - the learned agent always dominates the heuristic
 
@@ -135,11 +135,86 @@ So RL fine-tuning is currently an:
 
 It is not the headline result.
 
+## Robustness Snapshot
+
+The corrected robustness suite now supports the frozen learned controller across all reported stress settings.
+
+### `baseline_reference`
+
+- heuristic:
+  - `win_rate = 0.58`
+  - `tissue_damage = 94.1710`
+  - `host_utility = -90.3152`
+- learned:
+  - `win_rate = 0.60`
+  - `tissue_damage = 90.6470`
+  - `host_utility = -86.72115`
+
+### `high_bacteria_stochasticity`
+
+- heuristic:
+  - `win_rate = 0.54`
+  - `tissue_damage = 88.8430`
+  - `host_utility = -85.46935`
+- learned:
+  - `win_rate = 0.65`
+  - `tissue_damage = 84.0700`
+  - `host_utility = -80.20075`
+
+### `hotspot_overload`
+
+- heuristic:
+  - `win_rate = 0.39`
+  - `tissue_damage = 129.7790`
+  - `host_utility = -124.04345`
+- learned:
+  - `win_rate = 0.55`
+  - `tissue_damage = 123.2315`
+  - `host_utility = -117.78575`
+
+### `recruitment_delay_stress`
+
+- heuristic:
+  - `win_rate = 0.51`
+  - `tissue_damage = 92.7105`
+  - `host_utility = -88.7734`
+- learned:
+  - `win_rate = 0.57`
+  - `tissue_damage = 92.3840`
+  - `host_utility = -88.1073`
+
+### `fragile_tissue`
+
+- heuristic:
+  - `win_rate = 0.50`
+  - `tissue_damage = 119.5420`
+  - `host_utility = -115.92430`
+- learned:
+  - `win_rate = 0.51`
+  - `tissue_damage = 113.0116`
+  - `host_utility = -109.53105`
+
+### `narrow_bottleneck`
+
+- heuristic:
+  - `win_rate = 0.29`
+  - `tissue_damage = 115.5295`
+  - `host_utility = -115.60100`
+- learned:
+  - `win_rate = 0.39`
+  - `tissue_damage = 115.6620`
+  - `host_utility = -114.27225`
+
+Interpretation:
+
+- the learned controller is not only competitive on the frozen benchmark
+- it is also robust under stronger stochasticity, higher burden, delayed support, fragile tissue, and movement bottlenecks
+
 ## What More Training Means
 
-More training is **not automatically better** from this point.
+More training is not automatically better from this point.
 
-What likely helps:
+What may still help later:
 
 - more careful DAgger data aggregation
 - training multiple seeds and selecting by held-out validation
@@ -154,20 +229,7 @@ What is not currently justified:
 So the next research phase is:
 
 - freeze the DAgger mainline
-- run robustness experiments
 - report reproducibility
+- report robustness
+- finalize paper tables
 - only then consider carefully constrained training extensions
-
-## Robustness Follow-Up
-
-Robustness evaluation has now been added as the next evidence layer.
-
-Current status:
-
-- multiple stress suites already support the frozen DAgger controller
-- `high_bacteria_stochasticity` must be rerun after the bacteria-policy singleton bug fix
-
-See:
-
-- `ROBUSTNESS_RESULTS.md`
-- `results/robustness/hier_dagger_main/`

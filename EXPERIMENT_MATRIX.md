@@ -4,11 +4,11 @@
 
 This file defines the paper-track experiment structure for the current project.
 
-The project should now be evaluated as a focused benchmark-and-method paper, not as a zoo of unrelated agent branches.
+The project should now be presented as a focused benchmark-and-method paper, not as a zoo of unrelated agent branches.
 
 ## Main Comparison Table
 
-The primary table should include:
+The primary comparison table should include:
 
 1. `heuristic`
 2. `hierarchical BC-only`
@@ -32,71 +32,57 @@ Secondary behavioral metrics:
 - `coverage_ratio`
 - `visible_bacteria_ratio`
 
-## Current Interpretation
-
-Expected narrative:
-
-- `heuristic` is the interpretable expert baseline
-- `BC-only` is a weak bootstrap
-- `BC + DAgger` is the first competitive learned controller
-- `BC + DAgger + RL` is currently unstable and should be reported as a failed or inconclusive extension
-
 ## Reproducibility Table
 
-For the frozen benchmark, report at least:
+The reproducibility table should report:
 
 - training seed `42`
 - training seed `43`
 - training seed `44`
-- mean and standard deviation across these runs
+- heuristic reference on the same 100-seed evaluation set
+- learned mean across seeds
 
-Evaluate all on the same held-out `100`-seed benchmark.
+Core interpretation:
 
-Main reported reproducibility metrics:
-
-- `win_rate`
-- `tissue_damage`
-- `host_utility`
+- the learned method is reproducibly competitive
+- the best run beats the heuristic
+- seed variance is real, so the correct claim is competitiveness plus tissue preservation, not universal dominance
 
 ## Robustness Table
 
-After the standard benchmark, evaluate the frozen DAgger controller and heuristic under stress settings.
+The robustness table should compare `heuristic` vs frozen `BC + DAgger` on:
 
-Recommended robustness suites:
+1. `baseline_reference`
+2. `high_bacteria_stochasticity`
+3. `hotspot_overload`
+4. `recruitment_delay_stress`
+5. `fragile_tissue`
+6. `narrow_bottleneck`
 
-1. higher bacteria stochasticity
-2. harsher hotspot placement
-3. recruitment-delay stress
-4. tissue-damage sensitivity shift
-5. bottleneck / doorway-heavy seeds
+The strongest robustness wins to emphasize in the paper narrative are:
 
-Use the same metrics as the main table.
+- `high_bacteria_stochasticity`
+- `hotspot_overload`
+- `recruitment_delay_stress`
 
-Repository entrypoint for this phase:
+## What Is Not The Main Story
 
-```bash
-python -m experiments.run_robustness_suite --rl-model models/frozen/hier_dagger_main.pt --output-dir results/robustness
-```
-
-## GUI Demonstration
-
-The GUI demonstration should use:
-
-- `heuristic`
-- frozen `hierarchical BC + DAgger`
-
-The GUI should not use:
+These should not be the headline contribution:
 
 - runtime MCTS
-- RL-finetuned checkpoint
-- transient smoke checkpoints
+- flat PPO
+- unconstrained RL fine-tuning
+- arbitrary extra training without held-out validation
 
-## Appendix / Negative Results
+## Next Packaging Step
 
-The appendix or discussion should acknowledge:
+The project is now at the stage of:
 
-- flat PPO from scratch failed
-- runtime MCTS was not a practical mainline under the benchmark and hardware constraints
-- the first RL fine-tuning attempt destabilized the DAgger policy
+- frozen mainline reporting
+- final table construction
+- figure and demo preparation
+- paper writing
 
-These are useful scientific results, but they should not dominate the main paper framing.
+Not:
+
+- searching for a brand new control algorithm

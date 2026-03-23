@@ -2,13 +2,45 @@
 
 ## Status
 
-Robustness evaluation has now been run for the frozen hierarchical `BC + DAgger` controller.
+Robustness evaluation has now been fully rerun for the frozen hierarchical `BC + DAgger` controller, including the corrected `high_bacteria_stochasticity` suite.
 
-The learned controller remains competitive or better than the heuristic in multiple stress settings.
+The learned controller remains competitive or better than the heuristic in all currently reported stress settings.
 
-## Reliable Suites To Report
+Curated artifacts live in:
 
-These suites produced meaningful stress differences and can be used in the paper-track discussion:
+- `results/robustness/hier_dagger_main/`
+
+## Suite-by-Suite Summary
+
+### `baseline_reference`
+
+- heuristic:
+  - `win_rate = 0.58`
+  - `tissue_damage = 94.1710`
+  - `host_utility = -90.3152`
+- learned:
+  - `win_rate = 0.60`
+  - `tissue_damage = 90.6470`
+  - `host_utility = -86.72115`
+
+Interpretation:
+
+- the frozen learned controller remains slightly stronger than the heuristic on the main benchmark slice
+
+### `high_bacteria_stochasticity`
+
+- heuristic:
+  - `win_rate = 0.54`
+  - `tissue_damage = 88.8430`
+  - `host_utility = -85.46935`
+- learned:
+  - `win_rate = 0.65`
+  - `tissue_damage = 84.0700`
+  - `host_utility = -80.20075`
+
+Interpretation:
+
+- the learned controller handles increased bacteria randomness clearly better than the heuristic
 
 ### `hotspot_overload`
 
@@ -23,7 +55,7 @@ These suites produced meaningful stress differences and can be used in the paper
 
 Interpretation:
 
-- the learned controller is substantially stronger when initial bacterial burden is raised
+- the learned controller is substantially stronger when the initial bacterial burden is raised
 
 ### `recruitment_delay_stress`
 
@@ -70,30 +102,18 @@ Interpretation:
 
 - movement constraints reduce both policies, but the learned controller holds up better on win rate and utility
 
-## Provisional Suite
+## Note On The Stochasticity Fix
 
-### `high_bacteria_stochasticity`
+The earlier provisional `high_bacteria_stochasticity` output was invalid because bacteria movement had been using a module-level singleton that captured default stochasticity at import time.
 
-This suite matched the baseline exactly in the first robustness run.
-
-That result should not be trusted yet.
-
-Reason:
-
-- bacteria movement used a module-level singleton that captured default stochasticity at import time
-- the robustness override was therefore ineffective
-- this has now been fixed in `agents/bacteria_adaptive.py`
-
-Action:
-
-- rerun `high_bacteria_stochasticity` before using it in paper tables
+That issue is now fixed in `agents/bacteria_adaptive.py`, and the current robustness bundle contains the corrected rerun.
 
 ## Overall Interpretation
 
 The robustness evidence strengthens the main claim:
 
 - the hierarchical `BC + DAgger` controller is not just competitive on the frozen benchmark
-- it is especially promising under pressure-heavy and delay-heavy adversarial settings
+- it remains strong under increased pathogen randomness, higher starting burden, delayed neutrophil arrival, fragile tissue costs, and narrowed movement corridors
 
 This supports a stronger paper framing around:
 
