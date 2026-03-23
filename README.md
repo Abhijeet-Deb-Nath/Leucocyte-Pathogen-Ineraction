@@ -1,15 +1,18 @@
-# Pathway 1 Immune-Pathogen Simulator
+# Partial-Observation Immune Control Benchmark
 
-This repository is the cleaned paper-track codebase for a partially observable adversarial immune-control project.
+This repository is the cleaned paper-track codebase for a partially observable spatial immune-control benchmark.
 
 Core question:
 
 How should a locally sensing macrophage control a stochastic bacterial infection when escalation is delayed, costly, and only partially observed?
 
-For the environment rules, see `detailed_game_rule.md`.
-For the current project status, see `PROJECT_STATUS.md`.
-For the frozen mainline and experiment interpretation, see `FROZEN_MAINLINE.md`, `RESULTS_SUMMARY.md`, `ROBUSTNESS_RESULTS.md`, and `EXPERIMENT_MATRIX.md`.
+For retained project documentation, see `docs/README.md`.
+For the simulator's narrative framing, see `INTERACTION_STORY.md`.
+For the environment rules, see `docs/DETAILED_GAME_RULES.md`.
+For the current project status, see `docs/PROJECT_STATUS.md`.
+For the concise result summary, see `docs/RESULTS_SUMMARY.md`.
 For the centralized paper package, see `paper_material/README.md`.
+For later research branches, see `future_prospect/README.md`.
 
 ## Current Mainline
 
@@ -90,10 +93,12 @@ These were removed because they were no longer promising relative to the hardwar
 - `experiments/`: training, evaluation, robustness, reproducibility checks, simulation runner
 - `visualization/`: GUI and plotting
 - `models/`: local checkpoint space; `models/frozen/` is the stable home for the main learned checkpoint
+- `docs/`: retained project documentation and operational notes
 - `results/final_eval/`: curated held-out evaluation and reproducibility summaries
 - `results/robustness/`: curated robustness bundles for the frozen mainline
 - `results/paper_ready/`: regenerated comparison tables and publication-facing figures
 - `paper_material/`: manuscript draft, theory/formulation notes, claims/evidence, and submission strategy
+- `future_prospect/`: separate planning area for post-paper research branches
 
 ## Setup
 

@@ -1,8 +1,8 @@
-# Detailed Game Rules and Interaction Logic: Pathway 1
+# Detailed Game Rules and Interaction Logic
 
 ## 1. Executive Summary
 
-Pathway 1 is a deliberately simplified but mechanistically structured innate-immune interaction model.
+This benchmark is a deliberately simplified but mechanistically structured innate-immune interaction model.
 
 It is not a full biological simulator of lung physiology. It is a focused research sandbox designed to answer:
 1. How local spatial structure changes host-pathogen dynamics.
