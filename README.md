@@ -9,6 +9,7 @@ How should a locally sensing macrophage control a stochastic bacterial infection
 For the environment rules, see `detailed_game_rule.md`.
 For the current project status, see `PROJECT_STATUS.md`.
 For the frozen mainline and experiment interpretation, see `FROZEN_MAINLINE.md`, `RESULTS_SUMMARY.md`, `ROBUSTNESS_RESULTS.md`, and `EXPERIMENT_MATRIX.md`.
+For the centralized paper package, see `paper_material/README.md`.
 
 ## Current Mainline
 
@@ -92,6 +93,7 @@ These were removed because they were no longer promising relative to the hardwar
 - `results/final_eval/`: curated held-out evaluation and reproducibility summaries
 - `results/robustness/`: curated robustness bundles for the frozen mainline
 - `results/paper_ready/`: regenerated comparison tables and publication-facing figures
+- `paper_material/`: manuscript draft, theory/formulation notes, claims/evidence, and submission strategy
 
 ## Setup
 

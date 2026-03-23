@@ -18,6 +18,10 @@ Current frozen checkpoint:
 
 - `models/frozen/hier_dagger_main.pt`
 
+Canonical paper-writing materials now live in:
+
+- `paper_material/`
+
 Current evidence snapshot:
 
 - the full four-row held-out comparison table is now complete

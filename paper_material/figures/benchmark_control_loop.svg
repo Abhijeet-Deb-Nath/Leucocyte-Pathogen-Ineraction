@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="640" viewBox="0 0 1080 640">
+  <defs>
+    <style>
+      .title { font: 700 28px Arial, sans-serif; fill: #1f2933; }
+      .label { font: 700 20px Arial, sans-serif; fill: #102a43; }
+      .body { font: 16px Arial, sans-serif; fill: #243b53; }
+      .small { font: 14px Arial, sans-serif; fill: #486581; }
+      .box { stroke: #243b53; stroke-width: 2.5; rx: 18; ry: 18; }
+      .arrow { stroke: #243b53; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#243b53"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1080" height="640" fill="#f7f9fb"/>
+  <text x="540" y="48" text-anchor="middle" class="title">Partial-Observation Immune-Control Benchmark</text>
+
+  <rect x="60" y="110" width="250" height="170" class="box" fill="#d9e2ec"/>
+  <text x="185" y="145" text-anchor="middle" class="label">Local Observation</text>
+  <text x="85" y="180" class="body">- local grid patch</text>
+  <text x="85" y="208" class="body">- visible bacteria / neutrophils</text>
+  <text x="85" y="236" class="body">- chemokine and nutrient cues</text>
+  <text x="85" y="264" class="body">- belief-style memory features</text>
+
+  <rect x="410" y="90" width="270" height="210" class="box" fill="#bcccdc"/>
+  <text x="545" y="125" text-anchor="middle" class="label">Hierarchical Recurrent Policy</text>
+  <text x="440" y="162" class="body">Macro modes:</text>
+  <text x="470" y="190" class="body">engage, request_help,</text>
+  <text x="470" y="216" class="body">follow_chem, patrol</text>
+  <text x="440" y="252" class="body">Micro actions:</text>
+  <text x="470" y="280" class="body">move, stay, attack</text>
+
+  <rect x="780" y="110" width="240" height="170" class="box" fill="#d9e2ec"/>
+  <text x="900" y="145" text-anchor="middle" class="label">Executed Host Action</text>
+  <text x="810" y="180" class="body">- move</text>
+  <text x="810" y="208" class="body">- attack</text>
+  <text x="810" y="236" class="body">- abstract request_help</text>
+  <text x="810" y="264" class="small">resolved to valid concrete signal</text>
+
+  <rect x="160" y="380" width="760" height="180" class="box" fill="#e4e7eb"/>
+  <text x="540" y="418" text-anchor="middle" class="label">Environment Dynamics</text>
+
+  <rect x="205" y="445" width="155" height="85" class="box" fill="#f0f4f8"/>
+  <text x="282" y="475" text-anchor="middle" class="body">Adaptive Bacteria</text>
+  <text x="282" y="503" text-anchor="middle" class="small">movement, attachment,</text>
+  <text x="282" y="522" text-anchor="middle" class="small">microcolony / biofilm</text>
+
+  <rect x="390" y="445" width="155" height="85" class="box" fill="#f0f4f8"/>
+  <text x="467" y="475" text-anchor="middle" class="body">Chemokine Field</text>
+  <text x="467" y="503" text-anchor="middle" class="small">contact, signaling,</text>
+  <text x="467" y="522" text-anchor="middle" class="small">diffusion and decay</text>
+
+  <rect x="575" y="445" width="155" height="85" class="box" fill="#f0f4f8"/>
+  <text x="652" y="475" text-anchor="middle" class="body">Delayed Support</text>
+  <text x="652" y="503" text-anchor="middle" class="small">recruitment threshold,</text>
+  <text x="652" y="522" text-anchor="middle" class="small">queue and arrival delay</text>
+
+  <rect x="760" y="445" width="125" height="85" class="box" fill="#f0f4f8"/>
+  <text x="822" y="475" text-anchor="middle" class="body">Outcome</text>
+  <text x="822" y="503" text-anchor="middle" class="small">damage, utility,</text>
+  <text x="822" y="522" text-anchor="middle" class="small">termination</text>
+
+  <path d="M 310 195 C 350 195, 365 195, 410 195" class="arrow"/>
+  <path d="M 680 195 C 720 195, 735 195, 780 195" class="arrow"/>
+  <path d="M 900 280 C 900 330, 820 350, 700 380" class="arrow"/>
+  <path d="M 545 300 C 545 340, 545 350, 545 380" class="arrow"/>
+  <path d="M 300 380 C 220 345, 175 315, 185 280" class="arrow"/>
+
+  <text x="75" y="605" class="small">Paper message: the macrophage acts from local partial information, while the environment carries hidden burden, delayed reinforcement, and damage trade-offs.</text>
+</svg>

@@ -2,6 +2,8 @@
 
 This directory stores generated tables and figures used for paper drafting.
 
+The writing-side interpretation of these artifacts lives in `paper_material/`.
+
 Build them with:
 
 ```bash

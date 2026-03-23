@@ -14,6 +14,8 @@ These are intentional exceptions for:
 - curated robustness outputs
 - generated paper tables and figures
 
+The narrative interpretation of these artifacts should live in `paper_material/`, not inside the raw result bundles.
+
 Do not keep in git:
 
 - ad hoc smoke outputs

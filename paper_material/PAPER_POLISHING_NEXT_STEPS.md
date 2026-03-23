@@ -8,7 +8,7 @@ Already curated and ready:
 - held-out DAgger evaluation
 - held-out `BC-only` `100`-seed summary
 - held-out `BC + DAgger + RL` `100`-seed summary
-- reproducibility summary for training seeds `42`, `43`, `44`
+- reproducibility summary for training seeds `42`, `43`, and `44`
 - corrected robustness suite
 
 ## Local Next Step
