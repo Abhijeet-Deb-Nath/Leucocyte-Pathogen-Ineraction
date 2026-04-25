@@ -10,6 +10,8 @@ __pycache__/
 # Generated model artifacts
 models/*
 !models/README.md
+!models/frozen/
+!models/frozen/**
 
 # Generated result artifacts
 results/**
