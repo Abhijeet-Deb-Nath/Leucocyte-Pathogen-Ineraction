@@ -22,3 +22,5 @@ The purpose of this folder is to keep future work explicit, ranked, and technica
 
 - `FUTURE_RESEARCH_PATHWAYS.md`
   - the main future-planning document for the project
+- `PUBLICATION_POTENTIAL_ASSESSMENT.md`
+  - a candid assessment of whether the current work is worth further investment toward publication
